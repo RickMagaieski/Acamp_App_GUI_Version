@@ -74,3 +74,96 @@ class Participant:
             participant_id=_safe_text(record.get("id")),
         )
 
+
+def _inventory_quantity(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        quantity = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if quantity < 0:
+        return None
+    try:
+        if Decimal(str(value).strip()) != Decimal(quantity):
+            return None
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    return quantity
+
+
+def _inventory_value(value: Any) -> Decimal | None:
+    if isinstance(value, bool) or value is None or str(value).strip() == "":
+        return None
+    try:
+        amount = Decimal(str(value).strip())
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if not amount.is_finite() or amount < 0:
+        return None
+    return amount
+
+
+def format_currency(value: Decimal | None) -> str:
+    return "-" if value is None else f"${value:,.2f}"
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryItem:
+    """Display-safe view of an existing inventory record."""
+
+    source_index: int
+    item: str
+    quantity: int | None
+    value: Decimal | None
+    description: str
+
+    @classmethod
+    def from_mapping(
+        cls,
+        record: Mapping[str, Any],
+        source_index: int,
+    ) -> "InventoryItem":
+        return cls(
+            source_index=source_index,
+            item=_safe_text(record.get("item")),
+            quantity=_inventory_quantity(record.get("quantity")),
+            value=_inventory_value(record.get("value")),
+            description=_safe_text(record.get("description")),
+        )
+
+    @property
+    def quantity_display(self) -> str:
+        return "-" if self.quantity is None else str(self.quantity)
+
+    @property
+    def value_display(self) -> str:
+        return format_currency(self.value)
+
+    @property
+    def total_value(self) -> Decimal | None:
+        if self.quantity is None or self.value is None:
+            return None
+        return self.value * self.quantity
+
+    @property
+    def total_display(self) -> str:
+        return format_currency(self.total_value)
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryDraft:
+    """Validated data for one new inventory record."""
+
+    item: str
+    quantity: int
+    value: Decimal
+    description: str
+
+    def to_record(self) -> dict[str, str | int | float]:
+        return {
+            "item": self.item,
+            "quantity": self.quantity,
+            "value": float(self.value),
+            "description": self.description,
+        }

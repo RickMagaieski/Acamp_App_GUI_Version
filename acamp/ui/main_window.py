@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from acamp.repositories import ParticipantLoadResult
+from acamp.services import InventoryService
 
 from .pages.activities import ActivitiesPage
 from .pages.dashboard import DashboardPage
@@ -35,7 +36,11 @@ class MainWindow(QMainWindow):
         ("▥", "Relatórios", ReportsPage),
     )
 
-    def __init__(self, participant_result: ParticipantLoadResult | None = None):
+    def __init__(
+        self,
+        participant_result: ParticipantLoadResult | None = None,
+        inventory_service: InventoryService | None = None,
+    ):
         super().__init__()
         self.setWindowTitle("ACAMP WBSDAC 2026")
         self.resize(1440, 900)
@@ -62,11 +67,16 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(content_panel, 1)
 
         participant_result = participant_result or ParticipantLoadResult.empty()
+        inventory_service = inventory_service or InventoryService()
         self.registrations_page: RegistrationsPage | None = None
+        self.inventory_page: InventoryPage | None = None
         for _icon, _label, page_class in self.PAGE_DEFINITIONS:
             if page_class is RegistrationsPage:
                 page = page_class(participant_result)
                 self.registrations_page = page
+            elif page_class is InventoryPage:
+                page = page_class(inventory_service)
+                self.inventory_page = page
             else:
                 page = page_class()
             self.page_stack.addWidget(page)
@@ -139,6 +149,10 @@ class MainWindow(QMainWindow):
     def set_participant_result(self, result: ParticipantLoadResult) -> None:
         if self.registrations_page is not None:
             self.registrations_page.set_load_result(result)
+
+    def refresh_inventory_page(self) -> None:
+        if self.inventory_page is not None:
+            self.inventory_page.refresh_from_service()
 
     @property
     def current_page_index(self) -> int:

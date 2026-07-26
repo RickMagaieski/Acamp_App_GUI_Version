@@ -8,33 +8,56 @@ from pathlib import Path
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
-from acamp.repositories import ParticipantLoadResult, ParticipantRepository
+from acamp.repositories import (
+    InventoryRepository,
+    ParticipantLoadResult,
+    ParticipantRepository,
+)
+from acamp.services import InventoryService
 from acamp.ui.main_window import MainWindow
 from acamp.ui.theme import APP_STYLESHEET
 
 
-def create_application() -> tuple[QApplication, MainWindow]:
+def create_application(
+    *,
+    load_participants: bool = True,
+) -> tuple[QApplication, MainWindow]:
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName("ACAMP WBSDAC 2026")
     app.setOrganizationName("WBSDAC")
     app.setStyleSheet(APP_STYLESHEET)
 
     project_root = Path(__file__).resolve().parent
-    repository = ParticipantRepository(project_root / "participants.json")
-    window = MainWindow(ParticipantLoadResult.loading())
-    QTimer.singleShot(
-        0,
-        lambda: window.set_participant_result(repository.load()),
+    participant_repository = ParticipantRepository(
+        project_root / "participants.json"
     )
+    participant_state = (
+        ParticipantLoadResult.loading()
+        if load_participants
+        else ParticipantLoadResult.empty()
+    )
+    inventory_service = InventoryService(
+        InventoryRepository(project_root / "items.json")
+    )
+    window = MainWindow(participant_state, inventory_service)
+
+    def load_local_state() -> None:
+        if load_participants:
+            window.set_participant_result(participant_repository.load())
+        inventory_service.load()
+        window.refresh_inventory_page()
+
+    QTimer.singleShot(0, load_local_state)
     return app, window
 
 
 def main() -> int:
-    app, window = create_application()
+    smoke_test = "--smoke-test" in sys.argv
+    app, window = create_application(load_participants=not smoke_test)
     window.show()
 
     # A non-interactive startup check used by development verification.
-    if "--smoke-test" in sys.argv:
+    if smoke_test:
         QTimer.singleShot(250, app.quit)
 
     return app.exec()

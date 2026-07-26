@@ -7,8 +7,9 @@ from math import ceil
 from typing import Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PySide6.QtGui import QColor
 
-from acamp.models import Participant
+from acamp.models import InventoryItem, Participant
 
 
 def filter_participants(
@@ -114,3 +115,88 @@ class ParticipantTableModel(QAbstractTableModel):
         self._participants = tuple(participants)
         self.endResetModel()
 
+
+def filter_inventory_items(
+    items: Sequence[InventoryItem],
+    query: str,
+) -> tuple[InventoryItem, ...]:
+    normalized_query = query.strip().casefold()
+    if not normalized_query:
+        return tuple(items)
+    return tuple(
+        item
+        for item in items
+        if normalized_query in item.item.casefold()
+    )
+
+
+class InventoryTableModel(QAbstractTableModel):
+    HEADERS = (
+        "Item",
+        "Quantidade",
+        "Valor unitário",
+        "Valor total",
+        "Descrição",
+        "Ações",
+    )
+    ACTION_COLUMN = 5
+
+    def __init__(self, items: Sequence[InventoryItem] = (), parent=None):
+        super().__init__(parent)
+        self._items = tuple(items)
+
+    def rowCount(self, parent=QModelIndex()) -> int:  # noqa: N802
+        return 0 if parent.isValid() else len(self._items)
+
+    def columnCount(self, parent=QModelIndex()) -> int:  # noqa: N802
+        return 0 if parent.isValid() else len(self.HEADERS)
+
+    def data(self, index: QModelIndex, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid() or not 0 <= index.row() < len(self._items):
+            return None
+
+        item = self._items[index.row()]
+        values = (
+            item.item,
+            item.quantity_display,
+            item.value_display,
+            item.total_display,
+            item.description,
+            "Excluir",
+        )
+        if role == Qt.ItemDataRole.DisplayRole:
+            return values[index.column()]
+        if role == Qt.ItemDataRole.TextAlignmentRole:
+            if index.column() in (0, 4):
+                return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+            return Qt.AlignmentFlag.AlignCenter
+        if (
+            role == Qt.ItemDataRole.ForegroundRole
+            and index.column() == self.ACTION_COLUMN
+        ):
+            return QColor("#d55a17")
+        if (
+            role == Qt.ItemDataRole.ToolTipRole
+            and index.column() == self.ACTION_COLUMN
+        ):
+            return "Excluir item"
+        return None
+
+    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):  # noqa: N802
+        if (
+            role == Qt.ItemDataRole.DisplayRole
+            and orientation == Qt.Orientation.Horizontal
+            and 0 <= section < len(self.HEADERS)
+        ):
+            return self.HEADERS[section]
+        return None
+
+    def set_items(self, items: Sequence[InventoryItem]) -> None:
+        self.beginResetModel()
+        self._items = tuple(items)
+        self.endResetModel()
+
+    def item_at(self, row: int) -> InventoryItem | None:
+        if 0 <= row < len(self._items):
+            return self._items[row]
+        return None

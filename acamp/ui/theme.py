@@ -188,6 +188,20 @@ QTableView#participantTable {{
     selection-background-color: #edf0e5;
 }}
 
+QTableView#inventoryTable {{
+    background: {CARD};
+    border: none;
+    border-radius: 16px;
+    color: {TEXT};
+    font-size: 13px;
+    selection-background-color: #edf0e5;
+}}
+
+QTableView#inventoryTable::item {{
+    border-bottom: 1px solid #ebe8df;
+    padding: 6px 10px;
+}}
+
 QTableView#participantTable::item {{
     border-bottom: 1px solid #ebe8df;
     padding: 6px 10px;
@@ -209,10 +223,50 @@ QLabel#participantState {{
     padding: 30px;
 }}
 
+QLabel#inventoryState {{
+    color: {MUTED};
+    font-size: 15px;
+    padding: 30px;
+}}
+
 QLabel#participantTotal {{
     color: {MUTED};
     font-size: 14px;
     font-weight: 600;
+}}
+
+QLabel#inventoryTotal {{
+    color: {MUTED};
+    font-size: 14px;
+    font-weight: 600;
+}}
+
+QLabel#inventoryError, QLabel#dialogError {{
+    background: #fff0e9;
+    border: 1px solid #e8a17e;
+    border-radius: 8px;
+    color: #a83d15;
+    font-size: 13px;
+    padding: 9px 12px;
+}}
+
+QDialog#inventoryDialog {{
+    background: {CREAM};
+}}
+
+QDialog#inventoryDialog QLineEdit,
+QDialog#inventoryDialog QSpinBox,
+QDialog#inventoryDialog QTextEdit {{
+    background: {CARD};
+    border: 1px solid {BORDER};
+    border-radius: 7px;
+    padding: 8px;
+}}
+
+QLabel#dialogTitle {{
+    color: {TEXT};
+    font-size: 21px;
+    font-weight: 700;
 }}
 
 QLabel#pageInformation {{
