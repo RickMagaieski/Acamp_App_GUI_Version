@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
+from acamp.repositories import ParticipantLoadResult, ParticipantRepository
 from acamp.ui.main_window import MainWindow
 from acamp.ui.theme import APP_STYLESHEET
 
@@ -17,7 +19,13 @@ def create_application() -> tuple[QApplication, MainWindow]:
     app.setOrganizationName("WBSDAC")
     app.setStyleSheet(APP_STYLESHEET)
 
-    window = MainWindow()
+    project_root = Path(__file__).resolve().parent
+    repository = ParticipantRepository(project_root / "participants.json")
+    window = MainWindow(ParticipantLoadResult.loading())
+    QTimer.singleShot(
+        0,
+        lambda: window.set_participant_result(repository.load()),
+    )
     return app, window
 
 

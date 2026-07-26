@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from acamp.repositories import ParticipantLoadResult
+
 from .pages.activities import ActivitiesPage
 from .pages.dashboard import DashboardPage
 from .pages.finance import FinancePage
@@ -33,7 +35,7 @@ class MainWindow(QMainWindow):
         ("▥", "Relatórios", ReportsPage),
     )
 
-    def __init__(self):
+    def __init__(self, participant_result: ParticipantLoadResult | None = None):
         super().__init__()
         self.setWindowTitle("ACAMP WBSDAC 2026")
         self.resize(1440, 900)
@@ -59,8 +61,15 @@ class MainWindow(QMainWindow):
         content_layout.addWidget(self.page_stack)
         root_layout.addWidget(content_panel, 1)
 
+        participant_result = participant_result or ParticipantLoadResult.empty()
+        self.registrations_page: RegistrationsPage | None = None
         for _icon, _label, page_class in self.PAGE_DEFINITIONS:
-            self.page_stack.addWidget(page_class())
+            if page_class is RegistrationsPage:
+                page = page_class(participant_result)
+                self.registrations_page = page
+            else:
+                page = page_class()
+            self.page_stack.addWidget(page)
 
         self.navigation_buttons[0].setChecked(True)
         self.navigate_to(0)
@@ -127,7 +136,10 @@ class MainWindow(QMainWindow):
         self.page_stack.setCurrentIndex(index)
         self.navigation_buttons[index].setChecked(True)
 
+    def set_participant_result(self, result: ParticipantLoadResult) -> None:
+        if self.registrations_page is not None:
+            self.registrations_page.set_load_result(result)
+
     @property
     def current_page_index(self) -> int:
         return self.page_stack.currentIndex()
-

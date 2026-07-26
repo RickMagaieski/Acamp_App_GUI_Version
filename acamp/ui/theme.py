@@ -177,4 +177,67 @@ QLabel#chartPlaceholder {{
     font-size: 12px;
     font-weight: 600;
 }}
+
+QTableView#participantTable {{
+    background: {CARD};
+    alternate-background-color: {CARD};
+    border: none;
+    border-radius: 16px;
+    color: {TEXT};
+    font-size: 13px;
+    selection-background-color: #edf0e5;
+}}
+
+QTableView#participantTable::item {{
+    border-bottom: 1px solid #ebe8df;
+    padding: 6px 10px;
+}}
+
+QHeaderView::section {{
+    background: #eeece4;
+    border: none;
+    border-bottom: 1px solid {BORDER};
+    color: {TEXT};
+    font-size: 12px;
+    font-weight: 700;
+    padding: 10px 8px;
+}}
+
+QLabel#participantState {{
+    color: {MUTED};
+    font-size: 15px;
+    padding: 30px;
+}}
+
+QLabel#participantTotal {{
+    color: {MUTED};
+    font-size: 14px;
+    font-weight: 600;
+}}
+
+QLabel#pageInformation {{
+    color: {MUTED};
+    font-size: 13px;
+    min-width: 100px;
+}}
+
+QPushButton#paginationButton {{
+    background: {CARD};
+    border: 1px solid {BORDER};
+    border-radius: 8px;
+    color: {DARK_GREEN};
+    font-size: 20px;
+    font-weight: 600;
+    min-width: 40px;
+    min-height: 38px;
+}}
+
+QPushButton#paginationButton:hover {{
+    background: #eeece4;
+}}
+
+QPushButton#paginationButton:disabled {{
+    color: #b9bbb5;
+    background: #efede7;
+}}
 """
