@@ -1,0 +1,11 @@
+token.json
+client_secret.json
+participants.json
+items.json
+teams.json
+credentials.json
+
+__pycache__/
+*.pyc
+.venv/
+.idea/
