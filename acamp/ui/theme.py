@@ -1,0 +1,180 @@
+"""Central visual tokens and Qt stylesheet for the GUI shell."""
+
+from __future__ import annotations
+
+DARK_GREEN = "#1f3928"
+DEEP_GREEN = "#182f22"
+OLIVE = "#64784a"
+OLIVE_LIGHT = "#89996e"
+CREAM = "#f4f1e8"
+PANEL = "#faf8f2"
+CARD = "#fffdf8"
+TEXT = "#172019"
+MUTED = "#667067"
+ORANGE = "#d55a17"
+BORDER = "#ddd9cd"
+
+APP_STYLESHEET = f"""
+* {{
+    font-family: "Segoe UI", "Arial";
+    color: {TEXT};
+}}
+
+QMainWindow, QWidget#applicationRoot {{
+    background: {DEEP_GREEN};
+}}
+
+QWidget#sidebar {{
+    background: {DARK_GREEN};
+}}
+
+QWidget#contentPanel {{
+    background: {CREAM};
+    border-top-left-radius: 24px;
+    border-bottom-left-radius: 24px;
+}}
+
+QLabel#brandTitle {{
+    color: white;
+    font-size: 30px;
+    font-weight: 800;
+}}
+
+QLabel#brandYear {{
+    color: {ORANGE};
+    font-size: 20px;
+    font-weight: 700;
+}}
+
+QLabel#brandTagline, QLabel#sidebarFooter {{
+    color: #d7ddcf;
+    font-size: 12px;
+}}
+
+QPushButton#sidebarButton {{
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+    color: #eef1e9;
+    font-size: 15px;
+    text-align: left;
+    padding: 14px 18px;
+}}
+
+QPushButton#sidebarButton:hover {{
+    background: rgba(255, 255, 255, 0.08);
+}}
+
+QPushButton#sidebarButton:checked {{
+    background: {OLIVE};
+    color: white;
+    font-weight: 600;
+}}
+
+QScrollArea#pageScroll {{
+    background: transparent;
+    border: none;
+}}
+
+QWidget#pageCanvas {{
+    background: transparent;
+}}
+
+QLabel#headerIcon {{
+    background: {DARK_GREEN};
+    border-radius: 12px;
+    color: white;
+    font-size: 26px;
+    font-weight: 700;
+}}
+
+QLabel#pageTitle {{
+    color: {TEXT};
+    font-size: 31px;
+    font-weight: 750;
+}}
+
+QLabel#pageSubtitle {{
+    color: {MUTED};
+    font-size: 14px;
+}}
+
+QFrame#separator {{
+    background: {BORDER};
+    border: none;
+    min-height: 1px;
+    max-height: 1px;
+}}
+
+QFrame#card {{
+    background: {CARD};
+    border: 1px solid {BORDER};
+    border-radius: 16px;
+}}
+
+QLabel#cardTitle {{
+    color: {TEXT};
+    font-size: 15px;
+    font-weight: 700;
+}}
+
+QLabel#cardSubtitle, QLabel#placeholderText {{
+    color: {MUTED};
+    font-size: 13px;
+}}
+
+QLabel#metricValue {{
+    color: {OLIVE};
+    font-size: 30px;
+    font-weight: 700;
+}}
+
+QPushButton#primaryButton {{
+    background: {DARK_GREEN};
+    border: none;
+    border-radius: 9px;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 18px;
+}}
+
+QPushButton#primaryButton:hover {{
+    background: {OLIVE};
+}}
+
+QPushButton#primaryButton:pressed {{
+    background: {DEEP_GREEN};
+}}
+
+QPushButton#primaryButton:disabled {{
+    background: #a7ad9f;
+    color: #f0f0ec;
+}}
+
+QLineEdit#placeholderSearch {{
+    background: {CARD};
+    border: 1px solid {BORDER};
+    border-radius: 10px;
+    color: {MUTED};
+    font-size: 14px;
+    padding: 11px 14px;
+}}
+
+QLabel#tableHeader {{
+    background: #eeece4;
+    color: {TEXT};
+    font-size: 12px;
+    font-weight: 700;
+    padding: 10px;
+}}
+
+QLabel#chartPlaceholder {{
+    background: #f1efe7;
+    border: 2px dashed #c8c6bb;
+    border-radius: 42px;
+    color: {OLIVE};
+    font-size: 12px;
+    font-weight: 600;
+}}
+"""

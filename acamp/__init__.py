@@ -1,0 +1,2 @@
+"""ACAMP desktop application package."""
+
