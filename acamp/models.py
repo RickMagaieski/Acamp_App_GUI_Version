@@ -193,6 +193,22 @@ def _team_integer(value: Any) -> int | None:
 
 
 @dataclass(frozen=True, slots=True)
+class TeamMember:
+    """One member row, addressed by its source-list index."""
+
+    source_index: int
+    name: str
+
+    @classmethod
+    def from_record(cls, record: Any, source_index: int) -> "TeamMember":
+        if isinstance(record, Mapping):
+            name = _safe_text(record.get("participante"))
+        else:
+            name = "-"
+        return cls(source_index=source_index, name=name)
+
+
+@dataclass(frozen=True, slots=True)
 class Team:
     """Display-safe view of an existing team record."""
 
@@ -200,7 +216,8 @@ class Team:
     name: str
     leader: str
     color: str
-    participant_count: int | None
+    members: tuple[TeamMember, ...]
+    members_writable: bool
     score: int | None
 
     @classmethod
@@ -209,28 +226,43 @@ class Team:
         record: Mapping[str, Any],
         source_index: int,
     ) -> "Team":
+        people_missing = "pessoas" not in record
         people = record.get("pessoas")
-        participant_count = len(people) if isinstance(people, list) else None
+        if isinstance(people, list):
+            members = tuple(
+                TeamMember.from_record(member, index)
+                for index, member in enumerate(people)
+            )
+            members_writable = True
+        else:
+            members = ()
+            members_writable = people_missing
         return cls(
             source_index=source_index,
             name=_safe_text(record.get("equipe")),
             leader=_safe_text(record.get("lider")),
             color=_safe_text(record.get("cor")),
-            participant_count=participant_count,
+            members=members,
+            members_writable=members_writable,
             score=_team_integer(record.get("score")),
         )
 
     @property
+    def participant_count(self) -> int | None:
+        return len(self.members) if self.members_writable else None
+
+    @property
     def participant_count_display(self) -> str:
-        return (
-            "-"
-            if self.participant_count is None
-            else str(self.participant_count)
-        )
+        count = self.participant_count
+        return "-" if count is None else str(count)
+
+    @property
+    def score_value(self) -> int:
+        return self.score if self.score is not None else 0
 
     @property
     def score_display(self) -> str:
-        return "-" if self.score is None else str(self.score)
+        return str(self.score_value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,3 +281,13 @@ class TeamDraft:
             "pessoas": [],
             "score": 0,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class TeamMemberDraft:
+    """Validated name for a member added to an existing team."""
+
+    name: str
+
+    def to_record(self) -> dict[str, str]:
+        return {"participante": self.name}

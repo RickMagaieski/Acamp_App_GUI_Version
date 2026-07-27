@@ -8,7 +8,13 @@ from math import isfinite
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from .models import InventoryDraft, InventoryItem, Team, TeamDraft
+from .models import (
+    InventoryDraft,
+    InventoryItem,
+    Team,
+    TeamDraft,
+    TeamMemberDraft,
+)
 from .repositories import (
     InventoryLoadResult,
     InventoryRepository,
@@ -210,6 +216,26 @@ class TeamOperationResult:
     message: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class TeamMemberValidationResult:
+    draft: TeamMemberDraft | None
+    error: str = ""
+
+    @property
+    def succeeded(self) -> bool:
+        return self.draft is not None
+
+
+@dataclass(frozen=True, slots=True)
+class ScoreValidationResult:
+    amount: int | None
+    error: str = ""
+
+    @property
+    def succeeded(self) -> bool:
+        return self.amount is not None
+
+
 def validate_team_draft(
     name: Any,
     leader: Any,
@@ -237,6 +263,40 @@ def validate_team_draft(
             color=normalized_color,
         )
     )
+
+
+def validate_team_member_name(name: Any) -> TeamMemberValidationResult:
+    normalized_name = str(name).strip() if name is not None else ""
+    if not normalized_name:
+        return TeamMemberValidationResult(
+            draft=None,
+            error="Digite o nome do participante.",
+        )
+    return TeamMemberValidationResult(TeamMemberDraft(normalized_name))
+
+
+def validate_score_amount(value: Any) -> ScoreValidationResult:
+    if isinstance(value, bool) or value is None:
+        return ScoreValidationResult(
+            amount=None,
+            error="Digite uma pontuação válida.",
+        )
+    text = str(value).strip()
+    try:
+        amount = int(text)
+        if Decimal(text) != Decimal(amount):
+            raise ValueError
+    except (InvalidOperation, ValueError, TypeError, OverflowError):
+        return ScoreValidationResult(
+            amount=None,
+            error="Digite uma pontuação válida.",
+        )
+    if amount <= 0:
+        return ScoreValidationResult(
+            amount=None,
+            error="Digite uma pontuação válida maior que zero.",
+        )
+    return ScoreValidationResult(amount=amount)
 
 
 class TeamService:
@@ -285,6 +345,104 @@ class TeamService:
         if not 0 <= source_index < len(proposed_records):
             return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
         del proposed_records[source_index]
+        saved = self._repository.save(proposed_records)
+        if not saved.succeeded:
+            return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
+        self._result = team_result_from_records(proposed_records)
+        return TeamOperationResult(True)
+
+    def add_member(
+        self,
+        team_source_index: int,
+        draft: TeamMemberDraft,
+    ) -> TeamOperationResult:
+        team_record = self._editable_team_record(team_source_index)
+        if team_record is None:
+            return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
+
+        if "pessoas" not in team_record:
+            people: list[Any] = []
+        else:
+            existing_people = team_record.get("pessoas")
+            if not isinstance(existing_people, list):
+                return TeamOperationResult(
+                    False,
+                    "A lista de participantes desta equipe é inválida.",
+                )
+            people = list(existing_people)
+        people.append(draft.to_record())
+        proposed_team = dict(team_record)
+        proposed_team["pessoas"] = people
+        return self._persist_team_change(team_source_index, proposed_team)
+
+    def remove_member(
+        self,
+        team_source_index: int,
+        member_source_index: int,
+    ) -> TeamOperationResult:
+        team_record = self._editable_team_record(team_source_index)
+        if team_record is None:
+            return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
+        people = team_record.get("pessoas")
+        if (
+            not isinstance(people, list)
+            or not 0 <= member_source_index < len(people)
+        ):
+            return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
+
+        proposed_people = list(people)
+        del proposed_people[member_source_index]
+        proposed_team = dict(team_record)
+        proposed_team["pessoas"] = proposed_people
+        return self._persist_team_change(team_source_index, proposed_team)
+
+    def change_score(
+        self,
+        team_source_index: int,
+        delta: int,
+    ) -> TeamOperationResult:
+        if isinstance(delta, bool) or not isinstance(delta, int) or delta == 0:
+            return TeamOperationResult(False, "Digite uma pontuação válida.")
+        team_record = self._editable_team_record(team_source_index)
+        team = self.team_by_source_index(team_source_index)
+        if team_record is None or team is None:
+            return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
+
+        proposed_team = dict(team_record)
+        proposed_team["score"] = team.score_value + delta
+        return self._persist_team_change(team_source_index, proposed_team)
+
+    def team_by_source_index(self, source_index: int) -> Team | None:
+        return next(
+            (
+                team
+                for team in self._result.teams
+                if team.source_index == source_index
+            ),
+            None,
+        )
+
+    def _editable_team_record(self, source_index: int) -> dict | None:
+        if (
+            not self.editable
+            or self._repository is None
+            or not 0 <= source_index < len(self._result.records)
+        ):
+            return None
+        record = self._result.records[source_index]
+        return record if isinstance(record, dict) else None
+
+    def _persist_team_change(
+        self,
+        source_index: int,
+        proposed_team: dict,
+    ) -> TeamOperationResult:
+        if self._repository is None:
+            return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
+        proposed_records = list(self._result.records)
+        if not 0 <= source_index < len(proposed_records):
+            return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
+        proposed_records[source_index] = proposed_team
         saved = self._repository.save(proposed_records)
         if not saved.succeeded:
             return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)

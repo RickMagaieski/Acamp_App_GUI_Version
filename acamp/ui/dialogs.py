@@ -20,13 +20,15 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from acamp.models import InventoryDraft, TeamDraft
+from acamp.models import InventoryDraft, TeamDraft, TeamMemberDraft
 from acamp.pricing import ParticipantPayment
 from acamp.services import (
     InventoryOperationResult,
     TeamOperationResult,
     validate_inventory_draft,
+    validate_score_amount,
     validate_team_draft,
+    validate_team_member_name,
 )
 from acamp.ui.models import PaymentTableModel
 
@@ -227,6 +229,130 @@ class AddTeamDialog(QDialog):
             self.validation_label.show()
             return
         result = self._submit(validation.draft)
+        if result.succeeded:
+            self.accept()
+            return
+        self.validation_label.setText(
+            result.message or "Não foi possível salvar as alterações."
+        )
+        self.validation_label.show()
+
+
+class AddTeamMemberDialog(QDialog):
+    def __init__(
+        self,
+        team_name: str,
+        submit: Callable[[TeamMemberDraft], TeamOperationResult],
+        parent=None,
+    ):
+        super().__init__(parent)
+        self._submit = submit
+        self.setObjectName("teamDialog")
+        self.setWindowTitle("Adicionar Participante")
+        self.setModal(True)
+        self.setMinimumWidth(460)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setSpacing(14)
+        title = QLabel("Adicionar participante")
+        title.setObjectName("dialogTitle")
+        layout.addWidget(title)
+        context = QLabel(f"Time selecionado: {team_name}")
+        context.setObjectName("cardSubtitle")
+        layout.addWidget(context)
+
+        self.name_input = QLineEdit()
+        self.name_input.setPlaceholderText("Nome do participante")
+        layout.addWidget(self.name_input)
+
+        self.validation_label = QLabel()
+        self.validation_label.setObjectName("dialogError")
+        self.validation_label.setWordWrap(True)
+        self.validation_label.hide()
+        layout.addWidget(self.validation_label)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Adicionar")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
+        buttons.accepted.connect(self._validate_and_submit)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _validate_and_submit(self) -> None:
+        validation = validate_team_member_name(self.name_input.text())
+        if not validation.succeeded or validation.draft is None:
+            self.validation_label.setText(validation.error)
+            self.validation_label.show()
+            return
+        result = self._submit(validation.draft)
+        if result.succeeded:
+            self.accept()
+            return
+        self.validation_label.setText(
+            result.message or "Não foi possível salvar as alterações."
+        )
+        self.validation_label.show()
+
+
+class ScoreChangeDialog(QDialog):
+    def __init__(
+        self,
+        team_name: str,
+        *,
+        adding: bool,
+        submit: Callable[[int], TeamOperationResult],
+        parent=None,
+    ):
+        super().__init__(parent)
+        self._direction = 1 if adding else -1
+        self._submit = submit
+        action = "Adicionar" if adding else "Remover"
+        self.setObjectName("teamDialog")
+        self.setWindowTitle(f"{action} Pontos")
+        self.setModal(True)
+        self.setMinimumWidth(430)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setSpacing(14)
+        title = QLabel(f"{action} pontos")
+        title.setObjectName("dialogTitle")
+        layout.addWidget(title)
+        context = QLabel(f"Time selecionado: {team_name}")
+        context.setObjectName("cardSubtitle")
+        layout.addWidget(context)
+
+        self.amount_input = QLineEdit()
+        self.amount_input.setPlaceholderText("Pontuação inteira maior que zero")
+        layout.addWidget(self.amount_input)
+
+        self.validation_label = QLabel()
+        self.validation_label.setObjectName("dialogError")
+        self.validation_label.setWordWrap(True)
+        self.validation_label.hide()
+        layout.addWidget(self.validation_label)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText(action)
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
+        buttons.accepted.connect(self._validate_and_submit)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _validate_and_submit(self) -> None:
+        validation = validate_score_amount(self.amount_input.text())
+        if not validation.succeeded or validation.amount is None:
+            self.validation_label.setText(validation.error)
+            self.validation_label.show()
+            return
+        result = self._submit(validation.amount * self._direction)
         if result.succeeded:
             self.accept()
             return

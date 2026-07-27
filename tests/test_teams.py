@@ -65,7 +65,7 @@ class TeamRepositoryTests(unittest.TestCase):
         ], ensure_ascii=False))
         self.assertEqual(result.skipped_records, 1)
         self.assertEqual(result.teams[0].participant_count_display, "-")
-        self.assertEqual(result.teams[0].score_display, "-")
+        self.assertEqual(result.teams[0].score_display, "0")
 
     def test_atomic_save_and_failed_replace_preserve_source(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -180,16 +180,16 @@ class ActivitiesPageTests(unittest.TestCase):
         service.load()
         return ActivitiesPage(service)
 
-    def test_selection_and_phase_2d2_controls(self):
+    def test_selection_enables_phase_2d2_controls(self):
         with tempfile.TemporaryDirectory() as directory:
             page = self._build_page(Path(directory) / "teams.json")
             index = page.table_model.index(0, 0)
             page._table_clicked(index)
             self.assertIsNotNone(page._selected_source_index)
             self.assertTrue(page.delete_selected_button.isEnabled())
-            self.assertFalse(page.add_participant_button.isEnabled())
+            self.assertTrue(page.add_participant_button.isEnabled())
             self.assertFalse(page.remove_participant_button.isEnabled())
-            self.assertFalse(page.points_button.isEnabled())
+            self.assertTrue(page.points_button.isEnabled())
 
     def test_cancelled_and_confirmed_deletion(self):
         with tempfile.TemporaryDirectory() as directory:

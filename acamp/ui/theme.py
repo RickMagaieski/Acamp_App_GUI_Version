@@ -205,7 +205,9 @@ QTableView#paymentTable {{
     font-size: 13px;
 }}
 
-QTableView#teamTable {{
+QTableView#teamTable,
+QTableView#teamMemberTable,
+QTableView#teamRankingTable {{
     background: {CARD};
     border: none;
     border-radius: 16px;
@@ -214,7 +216,9 @@ QTableView#teamTable {{
     selection-background-color: #e4ead8;
 }}
 
-QTableView#teamTable::item {{
+QTableView#teamTable::item,
+QTableView#teamMemberTable::item,
+QTableView#teamRankingTable::item {{
     border-bottom: 1px solid #ebe8df;
     padding: 6px 10px;
 }}
@@ -305,6 +309,18 @@ QLabel#teamSelection {{
     color: {DARK_GREEN};
     font-size: 14px;
     font-weight: 600;
+}}
+
+QLabel#selectedTeamName {{
+    color: {DARK_GREEN};
+    font-size: 20px;
+    font-weight: 700;
+}}
+
+QLabel#selectedTeamScore {{
+    color: {ORANGE};
+    font-size: 18px;
+    font-weight: 700;
 }}
 
 QLabel#teamTotal {{
