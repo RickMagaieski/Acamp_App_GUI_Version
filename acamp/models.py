@@ -178,3 +178,74 @@ class InventoryDraft:
             "value": float(self.value),
             "description": self.description,
         }
+
+
+def _team_integer(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        number = Decimal(str(value).strip())
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if not number.is_finite() or number != number.to_integral_value():
+        return None
+    return int(number)
+
+
+@dataclass(frozen=True, slots=True)
+class Team:
+    """Display-safe view of an existing team record."""
+
+    source_index: int
+    name: str
+    leader: str
+    color: str
+    participant_count: int | None
+    score: int | None
+
+    @classmethod
+    def from_mapping(
+        cls,
+        record: Mapping[str, Any],
+        source_index: int,
+    ) -> "Team":
+        people = record.get("pessoas")
+        participant_count = len(people) if isinstance(people, list) else None
+        return cls(
+            source_index=source_index,
+            name=_safe_text(record.get("equipe")),
+            leader=_safe_text(record.get("lider")),
+            color=_safe_text(record.get("cor")),
+            participant_count=participant_count,
+            score=_team_integer(record.get("score")),
+        )
+
+    @property
+    def participant_count_display(self) -> str:
+        return (
+            "-"
+            if self.participant_count is None
+            else str(self.participant_count)
+        )
+
+    @property
+    def score_display(self) -> str:
+        return "-" if self.score is None else str(self.score)
+
+
+@dataclass(frozen=True, slots=True)
+class TeamDraft:
+    """Validated information for a newly created team."""
+
+    name: str
+    leader: str
+    color: str
+
+    def to_record(self) -> dict[str, str | int | list]:
+        return {
+            "equipe": self.name,
+            "lider": self.leader,
+            "cor": self.color,
+            "pessoas": [],
+            "score": 0,
+        }

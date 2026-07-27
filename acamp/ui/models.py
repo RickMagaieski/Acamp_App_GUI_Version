@@ -9,7 +9,7 @@ from typing import Sequence
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
 
-from acamp.models import InventoryItem, Participant, format_currency
+from acamp.models import InventoryItem, Participant, Team, format_currency
 from acamp.pricing import ParticipantPayment
 
 
@@ -251,4 +251,82 @@ class PaymentTableModel(QAbstractTableModel):
             and 0 <= section < len(self.HEADERS)
         ):
             return self.HEADERS[section]
+        return None
+
+
+def filter_teams(
+    teams: Sequence[Team],
+    query: str,
+) -> tuple[Team, ...]:
+    normalized_query = query.strip().casefold()
+    if not normalized_query:
+        return tuple(teams)
+    return tuple(
+        team for team in teams if normalized_query in team.name.casefold()
+    )
+
+
+class TeamTableModel(QAbstractTableModel):
+    HEADERS = (
+        "Time",
+        "Capitão",
+        "Cor",
+        "Participantes",
+        "Pontos",
+        "Ação",
+    )
+    ACTION_COLUMN = 5
+
+    def __init__(self, teams: Sequence[Team] = (), parent=None):
+        super().__init__(parent)
+        self._teams = tuple(teams)
+
+    def rowCount(self, parent=QModelIndex()) -> int:  # noqa: N802
+        return 0 if parent.isValid() else len(self._teams)
+
+    def columnCount(self, parent=QModelIndex()) -> int:  # noqa: N802
+        return 0 if parent.isValid() else len(self.HEADERS)
+
+    def data(self, index: QModelIndex, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid() or not 0 <= index.row() < len(self._teams):
+            return None
+        team = self._teams[index.row()]
+        values = (
+            team.name,
+            team.leader,
+            team.color,
+            team.participant_count_display,
+            team.score_display,
+            "Excluir",
+        )
+        if role == Qt.ItemDataRole.DisplayRole:
+            return values[index.column()]
+        if role == Qt.ItemDataRole.TextAlignmentRole:
+            if index.column() in (0, 1, 2):
+                return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+            return Qt.AlignmentFlag.AlignCenter
+        if (
+            role == Qt.ItemDataRole.ForegroundRole
+            and index.column() == self.ACTION_COLUMN
+        ):
+            return QColor("#d55a17")
+        return None
+
+    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):  # noqa: N802
+        if (
+            role == Qt.ItemDataRole.DisplayRole
+            and orientation == Qt.Orientation.Horizontal
+            and 0 <= section < len(self.HEADERS)
+        ):
+            return self.HEADERS[section]
+        return None
+
+    def set_teams(self, teams: Sequence[Team]) -> None:
+        self.beginResetModel()
+        self._teams = tuple(teams)
+        self.endResetModel()
+
+    def team_at(self, row: int) -> Team | None:
+        if 0 <= row < len(self._teams):
+            return self._teams[row]
         return None

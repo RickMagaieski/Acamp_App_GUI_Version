@@ -20,11 +20,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from acamp.models import InventoryDraft
+from acamp.models import InventoryDraft, TeamDraft
 from acamp.pricing import ParticipantPayment
 from acamp.services import (
     InventoryOperationResult,
+    TeamOperationResult,
     validate_inventory_draft,
+    validate_team_draft,
 )
 from acamp.ui.models import PaymentTableModel
 
@@ -161,3 +163,74 @@ class PaymentDetailsDialog(QDialog):
         close_button.setObjectName("primaryButton")
         close_button.clicked.connect(self.accept)
         layout.addWidget(close_button, 0, Qt.AlignmentFlag.AlignRight)
+
+
+class AddTeamDialog(QDialog):
+    """Creates a team only; participant and score actions are separate."""
+
+    def __init__(
+        self,
+        submit: Callable[[TeamDraft], TeamOperationResult],
+        parent=None,
+    ):
+        super().__init__(parent)
+        self._submit = submit
+        self.setObjectName("teamDialog")
+        self.setWindowTitle("Novo Time")
+        self.setModal(True)
+        self.setMinimumWidth(460)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setSpacing(14)
+        title = QLabel("Criar novo time")
+        title.setObjectName("dialogTitle")
+        layout.addWidget(title)
+
+        form = QFormLayout()
+        form.setVerticalSpacing(12)
+        self.name_input = QLineEdit()
+        self.name_input.setPlaceholderText("Nome do time")
+        form.addRow("Nome do time", self.name_input)
+        self.leader_input = QLineEdit()
+        self.leader_input.setPlaceholderText("Nome do capitão")
+        form.addRow("Capitão", self.leader_input)
+        self.color_input = QLineEdit()
+        self.color_input.setPlaceholderText("Cor do time")
+        form.addRow("Cor", self.color_input)
+        layout.addLayout(form)
+
+        self.validation_label = QLabel()
+        self.validation_label.setObjectName("dialogError")
+        self.validation_label.setWordWrap(True)
+        self.validation_label.hide()
+        layout.addWidget(self.validation_label)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Criar Time")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
+        buttons.accepted.connect(self._validate_and_submit)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _validate_and_submit(self) -> None:
+        validation = validate_team_draft(
+            self.name_input.text(),
+            self.leader_input.text(),
+            self.color_input.text(),
+        )
+        if not validation.succeeded or validation.draft is None:
+            self.validation_label.setText("\n".join(validation.errors.values()))
+            self.validation_label.show()
+            return
+        result = self._submit(validation.draft)
+        if result.succeeded:
+            self.accept()
+            return
+        self.validation_label.setText(
+            result.message or "Não foi possível salvar as alterações."
+        )
+        self.validation_label.show()

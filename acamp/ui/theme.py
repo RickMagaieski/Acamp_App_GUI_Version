@@ -205,6 +205,20 @@ QTableView#paymentTable {{
     font-size: 13px;
 }}
 
+QTableView#teamTable {{
+    background: {CARD};
+    border: none;
+    border-radius: 16px;
+    color: {TEXT};
+    font-size: 13px;
+    selection-background-color: #e4ead8;
+}}
+
+QTableView#teamTable::item {{
+    border-bottom: 1px solid #ebe8df;
+    padding: 6px 10px;
+}}
+
 QTableView#paymentTable::item {{
     border-bottom: 1px solid #ebe8df;
     padding: 6px 10px;
@@ -272,6 +286,33 @@ QLabel#financeWarning {{
     padding: 10px 13px;
 }}
 
+QLabel#teamError {{
+    background: #fff0e9;
+    border: 1px solid #e8a17e;
+    border-radius: 8px;
+    color: #a83d15;
+    font-size: 13px;
+    padding: 9px 12px;
+}}
+
+QLabel#teamState {{
+    color: {MUTED};
+    font-size: 15px;
+    padding: 30px;
+}}
+
+QLabel#teamSelection {{
+    color: {DARK_GREEN};
+    font-size: 14px;
+    font-weight: 600;
+}}
+
+QLabel#teamTotal {{
+    color: {MUTED};
+    font-size: 14px;
+    font-weight: 600;
+}}
+
 QWidget#financeValueRow {{
     border-bottom: 1px solid #ebe8df;
 }}
@@ -300,9 +341,14 @@ QDialog#paymentDialog {{
     background: {CREAM};
 }}
 
+QDialog#teamDialog {{
+    background: {CREAM};
+}}
+
 QDialog#inventoryDialog QLineEdit,
 QDialog#inventoryDialog QSpinBox,
-QDialog#inventoryDialog QTextEdit {{
+QDialog#inventoryDialog QTextEdit,
+QDialog#teamDialog QLineEdit {{
     background: {CARD};
     border: 1px solid {BORDER};
     border-radius: 7px;

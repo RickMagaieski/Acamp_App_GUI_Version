@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from acamp.repositories import ParticipantLoadResult
-from acamp.services import FinanceService, InventoryService
+from acamp.services import FinanceService, InventoryService, TeamService
 
 from .pages.activities import ActivitiesPage
 from .pages.dashboard import DashboardPage
@@ -40,6 +40,7 @@ class MainWindow(QMainWindow):
         self,
         participant_result: ParticipantLoadResult | None = None,
         inventory_service: InventoryService | None = None,
+        team_service: TeamService | None = None,
     ):
         super().__init__()
         self.setWindowTitle("ACAMP WBSDAC 2026")
@@ -68,6 +69,7 @@ class MainWindow(QMainWindow):
 
         participant_result = participant_result or ParticipantLoadResult.empty()
         inventory_service = inventory_service or InventoryService()
+        team_service = team_service or TeamService()
         self.finance_service = FinanceService(
             participant_result,
             inventory_service,
@@ -75,6 +77,7 @@ class MainWindow(QMainWindow):
         self.registrations_page: RegistrationsPage | None = None
         self.inventory_page: InventoryPage | None = None
         self.finance_page: FinancePage | None = None
+        self.activities_page: ActivitiesPage | None = None
         for _icon, _label, page_class in self.PAGE_DEFINITIONS:
             if page_class is RegistrationsPage:
                 page = page_class(participant_result)
@@ -85,6 +88,9 @@ class MainWindow(QMainWindow):
             elif page_class is FinancePage:
                 page = page_class(self.finance_service)
                 self.finance_page = page
+            elif page_class is ActivitiesPage:
+                page = page_class(team_service)
+                self.activities_page = page
             else:
                 page = page_class()
             self.page_stack.addWidget(page)
@@ -171,6 +177,10 @@ class MainWindow(QMainWindow):
         if self.inventory_page is not None:
             self.inventory_page.refresh_from_service()
         self._refresh_finance_page()
+
+    def refresh_activities_page(self) -> None:
+        if self.activities_page is not None:
+            self.activities_page.refresh_from_service()
 
     def _refresh_finance_page(self) -> None:
         if self.finance_page is not None:

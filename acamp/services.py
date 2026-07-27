@@ -8,11 +8,14 @@ from math import isfinite
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from .models import InventoryDraft, InventoryItem
+from .models import InventoryDraft, InventoryItem, Team, TeamDraft
 from .repositories import (
     InventoryLoadResult,
     InventoryRepository,
     ParticipantLoadResult,
+    TeamLoadResult,
+    TeamRepository,
+    team_result_from_records,
     inventory_result_from_records,
 )
 from .pricing import FinancialSnapshot, calculate_financial_snapshot
@@ -187,3 +190,103 @@ class FinanceService:
             participants_available=self._participant_result.succeeded,
             inventory_available=self._inventory_service.load_result.succeeded,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class TeamValidationResult:
+    draft: TeamDraft | None
+    errors: Mapping[str, str] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
+
+    @property
+    def succeeded(self) -> bool:
+        return self.draft is not None
+
+
+@dataclass(frozen=True, slots=True)
+class TeamOperationResult:
+    succeeded: bool
+    message: str = ""
+
+
+def validate_team_draft(
+    name: Any,
+    leader: Any,
+    color: Any,
+) -> TeamValidationResult:
+    normalized_name = str(name).strip() if name is not None else ""
+    normalized_leader = str(leader).strip() if leader is not None else ""
+    normalized_color = str(color).strip() if color is not None else ""
+    errors: dict[str, str] = {}
+    if not normalized_name:
+        errors["name"] = "Informe o nome do time."
+    if not normalized_leader:
+        errors["leader"] = "Informe o nome do capitão."
+    if not normalized_color:
+        errors["color"] = "Informe a cor do time."
+    if errors:
+        return TeamValidationResult(
+            draft=None,
+            errors=MappingProxyType(errors),
+        )
+    return TeamValidationResult(
+        draft=TeamDraft(
+            name=normalized_name,
+            leader=normalized_leader,
+            color=normalized_color,
+        )
+    )
+
+
+class TeamService:
+    """Owns team state and persists create/delete proposals first."""
+
+    SAVE_ERROR_MESSAGE = "Não foi possível salvar as alterações."
+
+    def __init__(self, repository: TeamRepository | None = None):
+        self._repository = repository
+        self._result = TeamLoadResult.loading()
+
+    @property
+    def load_result(self) -> TeamLoadResult:
+        return self._result
+
+    @property
+    def teams(self) -> tuple[Team, ...]:
+        return self._result.teams
+
+    @property
+    def editable(self) -> bool:
+        return self._repository is not None and self._result.editable
+
+    def load(self) -> TeamLoadResult:
+        if self._repository is not None:
+            self._result = self._repository.load()
+        return self._result
+
+    def create_team(self, draft: TeamDraft) -> TeamOperationResult:
+        if not self.editable or self._repository is None:
+            return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
+        proposed_records = list(self._result.records)
+        proposed_records.append(draft.to_record())
+        saved = self._repository.save(proposed_records)
+        if not saved.succeeded:
+            return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
+        self._result = team_result_from_records(proposed_records)
+        return TeamOperationResult(True)
+
+    def delete_team(self, source_index: int) -> TeamOperationResult:
+        # Teams have no stable IDs in Phase 2D1; selection maps to the exact
+        # source-document index represented by the current table model.
+        if not self.editable or self._repository is None:
+            return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
+        proposed_records = list(self._result.records)
+        if not 0 <= source_index < len(proposed_records):
+            return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
+        del proposed_records[source_index]
+        saved = self._repository.save(proposed_records)
+        if not saved.succeeded:
+            return TeamOperationResult(False, self.SAVE_ERROR_MESSAGE)
+        self._result = team_result_from_records(proposed_records)
+        return TeamOperationResult(True)

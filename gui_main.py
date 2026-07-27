@@ -12,8 +12,9 @@ from acamp.repositories import (
     InventoryRepository,
     ParticipantLoadResult,
     ParticipantRepository,
+    TeamRepository,
 )
-from acamp.services import InventoryService
+from acamp.services import InventoryService, TeamService
 from acamp.ui.main_window import MainWindow
 from acamp.ui.theme import APP_STYLESHEET
 
@@ -21,6 +22,8 @@ from acamp.ui.theme import APP_STYLESHEET
 def create_application(
     *,
     load_participants: bool = True,
+    load_inventory: bool = True,
+    load_teams: bool = True,
 ) -> tuple[QApplication, MainWindow]:
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName("ACAMP WBSDAC 2026")
@@ -39,13 +42,20 @@ def create_application(
     inventory_service = InventoryService(
         InventoryRepository(project_root / "items.json")
     )
-    window = MainWindow(participant_state, inventory_service)
+    team_service = TeamService(
+        TeamRepository(project_root / "teams.json")
+    )
+    window = MainWindow(participant_state, inventory_service, team_service)
 
     def load_local_state() -> None:
         if load_participants:
             window.set_participant_result(participant_repository.load())
-        inventory_service.load()
-        window.refresh_inventory_page()
+        if load_inventory:
+            inventory_service.load()
+            window.refresh_inventory_page()
+        if load_teams:
+            team_service.load()
+            window.refresh_activities_page()
 
     QTimer.singleShot(0, load_local_state)
     return app, window
@@ -53,7 +63,11 @@ def create_application(
 
 def main() -> int:
     smoke_test = "--smoke-test" in sys.argv
-    app, window = create_application(load_participants=not smoke_test)
+    app, window = create_application(
+        load_participants=not smoke_test,
+        load_inventory=not smoke_test,
+        load_teams=True,
+    )
     window.show()
 
     # A non-interactive startup check used by development verification.
