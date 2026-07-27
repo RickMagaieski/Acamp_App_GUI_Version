@@ -83,13 +83,17 @@ class MainWindow(QMainWindow):
             self.finance_service,
             team_service,
         )
+        self.dashboard_page: DashboardPage | None = None
         self.registrations_page: RegistrationsPage | None = None
         self.inventory_page: InventoryPage | None = None
         self.finance_page: FinancePage | None = None
         self.activities_page: ActivitiesPage | None = None
         self.reports_page: ReportsPage | None = None
         for _icon, _label, page_class in self.PAGE_DEFINITIONS:
-            if page_class is RegistrationsPage:
+            if page_class is DashboardPage:
+                page = page_class(self.reporting_service)
+                self.dashboard_page = page
+            elif page_class is RegistrationsPage:
                 page = page_class(participant_result)
                 self.registrations_page = page
             elif page_class is InventoryPage:
@@ -114,8 +118,10 @@ class MainWindow(QMainWindow):
             )
         if self.activities_page is not None:
             self.activities_page.teams_changed.connect(
-                self._refresh_reports_page
+                self._refresh_reports_and_dashboard
             )
+        if self.dashboard_page is not None:
+            self.dashboard_page.navigate_requested.connect(self.navigate_to)
 
         self.navigation_buttons[0].setChecked(True)
         self.navigate_to(0)
@@ -181,6 +187,8 @@ class MainWindow(QMainWindow):
             return
         self.page_stack.setCurrentIndex(index)
         self.navigation_buttons[index].setChecked(True)
+        if self.page_stack.widget(index) is self.dashboard_page:
+            self._refresh_dashboard_page()
         if self.page_stack.widget(index) is self.finance_page:
             self._refresh_finance_page()
         if self.page_stack.widget(index) is self.reports_page:
@@ -200,7 +208,7 @@ class MainWindow(QMainWindow):
     def refresh_activities_page(self) -> None:
         if self.activities_page is not None:
             self.activities_page.refresh_from_service()
-        self._refresh_reports_page()
+        self._refresh_reports_and_dashboard()
 
     def _refresh_finance_page(self) -> None:
         if self.finance_page is not None:
@@ -210,9 +218,18 @@ class MainWindow(QMainWindow):
         if self.reports_page is not None:
             self.reports_page.refresh_from_service()
 
+    def _refresh_dashboard_page(self) -> None:
+        if self.dashboard_page is not None:
+            self.dashboard_page.refresh_from_service()
+
+    def _refresh_reports_and_dashboard(self) -> None:
+        self._refresh_reports_page()
+        self._refresh_dashboard_page()
+
     def _refresh_finance_and_reports(self) -> None:
         self._refresh_finance_page()
         self._refresh_reports_page()
+        self._refresh_dashboard_page()
 
     @property
     def current_page_index(self) -> int:

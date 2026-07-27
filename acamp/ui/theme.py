@@ -121,6 +121,11 @@ QFrame#card {{
     border-radius: 16px;
 }}
 
+QFrame#card[clickable="true"]:hover {{
+    border: 1px solid {OLIVE_LIGHT};
+    background: #f9f8f1;
+}}
+
 QLabel#cardTitle {{
     color: {TEXT};
     font-size: 15px;
@@ -136,6 +141,16 @@ QLabel#metricValue {{
     color: {OLIVE};
     font-size: 30px;
     font-weight: 700;
+}}
+
+QLabel#metricIcon {{
+    font-size: 22px;
+    font-weight: 700;
+}}
+
+QLabel#metricDetails {{
+    color: {MUTED};
+    font-size: 11px;
 }}
 
 QPushButton#primaryButton {{
@@ -356,6 +371,59 @@ QLabel#financeValue {{
 QLabel#financeEmptyState {{
     color: {MUTED};
     font-size: 15px;
+}}
+
+QLabel#dashboardWarning {{
+    background: #fff6dc;
+    border: 1px solid #e5bd63;
+    border-radius: 9px;
+    color: #795813;
+    font-size: 13px;
+    padding: 10px 13px;
+}}
+
+QLabel#dashboardSyncStatus {{
+    color: {MUTED};
+    font-size: 10px;
+}}
+
+QWidget#dashboardSummaryRow {{
+    border-bottom: 1px solid #ebe8df;
+}}
+
+QLabel#dashboardSummaryLabel {{
+    color: {TEXT};
+    font-size: 13px;
+}}
+
+QLabel#dashboardSummaryValue {{
+    color: {OLIVE};
+    font-size: 14px;
+    font-weight: 700;
+}}
+
+QLabel#dashboardTeamLeader {{
+    color: {DARK_GREEN};
+    font-size: 20px;
+    font-weight: 700;
+}}
+
+QLabel#dashboardTeamScore {{
+    color: {ORANGE};
+    font-size: 16px;
+    font-weight: 700;
+}}
+
+QLabel#dashboardRankingPreview {{
+    color: {MUTED};
+    font-size: 13px;
+    line-height: 1.4;
+}}
+
+QLabel#dashboardWelcomeTitle {{
+    color: {TEXT};
+    font-size: 24px;
+    font-weight: 700;
 }}
 
 QLabel#reportWarning {{

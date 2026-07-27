@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Sequence
 
-from .models import Participant, Team
+from .models import InventoryItem, Participant, Team
 from .pricing import FinancialSnapshot, PaymentStatus
 
 
@@ -101,6 +101,12 @@ class ReportSnapshot:
     payment_statuses: tuple[CategoryCount, ...]
     financial: FinancialReport
     team_ranking: tuple[TeamRankingEntry, ...]
+    inventory_item_count: int
+    inventory_unit_count: int
+    team_count: int
+    team_member_count: int
+    unknown_inventory_quantity_count: int
+    unknown_team_member_list_count: int
     participants_available: bool
     inventory_available: bool
     teams_available: bool
@@ -131,7 +137,51 @@ class ReportSnapshot:
             or self.skipped_participant_records > 0
             or self.skipped_inventory_records > 0
             or self.skipped_team_records > 0
+            or self.unknown_inventory_quantity_count > 0
+            or self.unknown_team_member_list_count > 0
         )
+
+    def _category_value(
+        self,
+        entries: Sequence[CategoryCount],
+        label: str,
+    ) -> int:
+        return next(
+            (entry.count for entry in entries if entry.label == label),
+            0,
+        )
+
+    @property
+    def paid_count(self) -> int:
+        return self._category_value(
+            self.payment_statuses,
+            PAYMENT_STATUS_LABELS[PaymentStatus.PAID],
+        )
+
+    @property
+    def partial_count(self) -> int:
+        return self._category_value(
+            self.payment_statuses,
+            PAYMENT_STATUS_LABELS[PaymentStatus.PARTIAL],
+        )
+
+    @property
+    def pending_count(self) -> int:
+        return self._category_value(
+            self.payment_statuses,
+            PAYMENT_STATUS_LABELS[PaymentStatus.PENDING],
+        )
+
+    @property
+    def transportation_help_count(self) -> int:
+        return self._category_value(
+            self.transportation_categories,
+            TRANSPORTATION_LABELS[0],
+        )
+
+    @property
+    def leading_team(self) -> TeamRankingEntry | None:
+        return self.team_ranking[0] if self.team_ranking else None
 
 
 def _normalize_text(value: str) -> str:
@@ -235,6 +285,7 @@ def build_report_snapshot(
     financial: FinancialSnapshot,
     teams: Sequence[Team],
     *,
+    inventory_items: Sequence[InventoryItem] = (),
     participants_available: bool = True,
     inventory_available: bool = True,
     teams_available: bool = True,
@@ -275,6 +326,25 @@ def build_report_snapshot(
         )
         for status in PAYMENT_STATUS_ORDER
     )
+    inventory_item_count = len(inventory_items)
+    inventory_unit_count = sum(
+        item.quantity
+        for item in inventory_items
+        if item.quantity is not None
+    )
+    unknown_inventory_quantity_count = sum(
+        item.quantity is None
+        for item in inventory_items
+    )
+    team_member_count = sum(
+        team.participant_count
+        for team in teams
+        if team.participant_count is not None
+    )
+    unknown_team_member_list_count = sum(
+        team.participant_count is None
+        for team in teams
+    )
 
     return ReportSnapshot(
         participant_total=len(participants),
@@ -285,6 +355,14 @@ def build_report_snapshot(
         payment_statuses=payment_statuses,
         financial=FinancialReport.from_snapshot(financial),
         team_ranking=rank_teams(teams),
+        inventory_item_count=inventory_item_count,
+        inventory_unit_count=inventory_unit_count,
+        team_count=len(teams),
+        team_member_count=team_member_count,
+        unknown_inventory_quantity_count=(
+            unknown_inventory_quantity_count
+        ),
+        unknown_team_member_list_count=unknown_team_member_list_count,
         participants_available=participants_available,
         inventory_available=inventory_available,
         teams_available=teams_available,

@@ -12,7 +12,7 @@ from PySide6.QtCharts import (
     QPieSeries,
     QValueAxis,
 )
-from PySide6.QtCore import QMargins, Qt
+from PySide6.QtCore import QMargins, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QFrame,
@@ -60,7 +60,7 @@ class PageHeader(QWidget):
         title: str,
         subtitle: str,
         icon_text: str,
-        action: QPushButton | None = None,
+        action: QWidget | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -101,17 +101,19 @@ class Card(QFrame):
         self.body = QVBoxLayout(self)
         self.body.setContentsMargins(20, 18, 20, 18)
         self.body.setSpacing(10)
+        self.title_label: QLabel | None = None
+        self.subtitle_label: QLabel | None = None
 
         if title:
-            title_label = QLabel(title)
-            title_label.setObjectName("cardTitle")
-            title_label.setWordWrap(True)
-            self.body.addWidget(title_label)
+            self.title_label = QLabel(title)
+            self.title_label.setObjectName("cardTitle")
+            self.title_label.setWordWrap(True)
+            self.body.addWidget(self.title_label)
         if subtitle:
-            subtitle_label = QLabel(subtitle)
-            subtitle_label.setObjectName("cardSubtitle")
-            subtitle_label.setWordWrap(True)
-            self.body.addWidget(subtitle_label)
+            self.subtitle_label = QLabel(subtitle)
+            self.subtitle_label.setObjectName("cardSubtitle")
+            self.subtitle_label.setWordWrap(True)
+            self.body.addWidget(self.subtitle_label)
 
     def add_placeholder(self, text: str = "Conteúdo disponível em uma próxima fase.") -> QLabel:
         label = QLabel(text)
@@ -123,14 +125,71 @@ class Card(QFrame):
 
 
 class MetricCard(Card):
-    def __init__(self, title: str, accent: str = OLIVE, parent: QWidget | None = None):
+    clicked = Signal()
+
+    def __init__(
+        self,
+        title: str,
+        accent: str = OLIVE,
+        icon_text: str = "",
+        parent: QWidget | None = None,
+    ):
         super().__init__(title, parent=parent)
-        self.setMinimumSize(150, 170)
-        value = QLabel("—")
-        value.setObjectName("metricValue")
-        value.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        value.setStyleSheet(f"color: {accent};")
-        self.body.addWidget(value, 1)
+        self._clickable = False
+        self.setMinimumSize(120, 190)
+        if self.title_label is not None:
+            self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.icon_label = QLabel(icon_text)
+        self.icon_label.setObjectName("metricIcon")
+        self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.icon_label.setFixedSize(52, 52)
+        self.icon_label.setStyleSheet(
+            f"background: {accent}; color: white; border-radius: 26px;"
+        )
+        self.body.insertWidget(
+            0,
+            self.icon_label,
+            0,
+            Qt.AlignmentFlag.AlignHCenter,
+        )
+
+        self.value_label = QLabel("—")
+        self.value_label.setObjectName("metricValue")
+        self.value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.value_label.setWordWrap(True)
+        self.value_label.setStyleSheet(f"color: {accent};")
+        self.body.addWidget(self.value_label, 1)
+
+        self.details_label = QLabel()
+        self.details_label.setObjectName("metricDetails")
+        self.details_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.details_label.setWordWrap(True)
+        self.details_label.hide()
+        self.body.addWidget(self.details_label)
+
+    def set_value(self, value: str) -> None:
+        self.value_label.setText(value)
+
+    def set_details(self, details: str) -> None:
+        self.details_label.setText(details)
+        self.details_label.setVisible(bool(details))
+
+    def set_clickable(self, tooltip: str = "") -> None:
+        self._clickable = True
+        self.setProperty("clickable", True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip(tooltip)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if (
+            self._clickable
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            self.clicked.emit()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
 
 class PageScaffold(QScrollArea):
@@ -139,7 +198,7 @@ class PageScaffold(QScrollArea):
         title: str,
         subtitle: str,
         icon_text: str,
-        action: QPushButton | None = None,
+        action: QWidget | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)

@@ -219,6 +219,7 @@ class ReportingService:
             participant_result.participants,
             financial,
             self._team_service.teams,
+            inventory_items=inventory_result.items,
             participants_available=participant_result.succeeded,
             inventory_available=inventory_result.succeeded,
             teams_available=team_result.succeeded,
