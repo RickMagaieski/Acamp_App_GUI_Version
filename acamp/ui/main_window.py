@@ -15,7 +15,12 @@ from PySide6.QtWidgets import (
 )
 
 from acamp.repositories import ParticipantLoadResult
-from acamp.services import FinanceService, InventoryService, TeamService
+from acamp.services import (
+    FinanceService,
+    InventoryService,
+    ReportingService,
+    TeamService,
+)
 
 from .pages.activities import ActivitiesPage
 from .pages.dashboard import DashboardPage
@@ -74,10 +79,15 @@ class MainWindow(QMainWindow):
             participant_result,
             inventory_service,
         )
+        self.reporting_service = ReportingService(
+            self.finance_service,
+            team_service,
+        )
         self.registrations_page: RegistrationsPage | None = None
         self.inventory_page: InventoryPage | None = None
         self.finance_page: FinancePage | None = None
         self.activities_page: ActivitiesPage | None = None
+        self.reports_page: ReportsPage | None = None
         for _icon, _label, page_class in self.PAGE_DEFINITIONS:
             if page_class is RegistrationsPage:
                 page = page_class(participant_result)
@@ -91,13 +101,20 @@ class MainWindow(QMainWindow):
             elif page_class is ActivitiesPage:
                 page = page_class(team_service)
                 self.activities_page = page
+            elif page_class is ReportsPage:
+                page = page_class(self.reporting_service)
+                self.reports_page = page
             else:
                 page = page_class()
             self.page_stack.addWidget(page)
 
         if self.inventory_page is not None:
             self.inventory_page.inventory_changed.connect(
-                self._refresh_finance_page
+                self._refresh_finance_and_reports
+            )
+        if self.activities_page is not None:
+            self.activities_page.teams_changed.connect(
+                self._refresh_reports_page
             )
 
         self.navigation_buttons[0].setChecked(True)
@@ -166,25 +183,36 @@ class MainWindow(QMainWindow):
         self.navigation_buttons[index].setChecked(True)
         if self.page_stack.widget(index) is self.finance_page:
             self._refresh_finance_page()
+        if self.page_stack.widget(index) is self.reports_page:
+            self._refresh_reports_page()
 
     def set_participant_result(self, result: ParticipantLoadResult) -> None:
         self.finance_service.set_participant_result(result)
         if self.registrations_page is not None:
             self.registrations_page.set_load_result(result)
-        self._refresh_finance_page()
+        self._refresh_finance_and_reports()
 
     def refresh_inventory_page(self) -> None:
         if self.inventory_page is not None:
             self.inventory_page.refresh_from_service()
-        self._refresh_finance_page()
+        self._refresh_finance_and_reports()
 
     def refresh_activities_page(self) -> None:
         if self.activities_page is not None:
             self.activities_page.refresh_from_service()
+        self._refresh_reports_page()
 
     def _refresh_finance_page(self) -> None:
         if self.finance_page is not None:
             self.finance_page.refresh_from_service()
+
+    def _refresh_reports_page(self) -> None:
+        if self.reports_page is not None:
+            self.reports_page.refresh_from_service()
+
+    def _refresh_finance_and_reports(self) -> None:
+        self._refresh_finance_page()
+        self._refresh_reports_page()
 
     @property
     def current_page_index(self) -> int:

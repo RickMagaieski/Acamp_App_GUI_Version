@@ -25,6 +25,7 @@ from .repositories import (
     inventory_result_from_records,
 )
 from .pricing import FinancialSnapshot, calculate_financial_snapshot
+from .reporting import ReportSnapshot, build_report_snapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,6 +196,35 @@ class FinanceService:
             self._inventory_service.items,
             participants_available=self._participant_result.succeeded,
             inventory_available=self._inventory_service.load_result.succeeded,
+        )
+
+
+class ReportingService:
+    """Builds aggregate reports from the already-loaded shared services."""
+
+    def __init__(
+        self,
+        finance_service: FinanceService,
+        team_service: "TeamService",
+    ):
+        self._finance_service = finance_service
+        self._team_service = team_service
+
+    def snapshot(self) -> ReportSnapshot:
+        participant_result = self._finance_service.participant_result
+        inventory_result = self._finance_service.inventory_result
+        team_result = self._team_service.load_result
+        financial = self._finance_service.snapshot()
+        return build_report_snapshot(
+            participant_result.participants,
+            financial,
+            self._team_service.teams,
+            participants_available=participant_result.succeeded,
+            inventory_available=inventory_result.succeeded,
+            teams_available=team_result.succeeded,
+            skipped_participant_records=participant_result.skipped_records,
+            skipped_inventory_records=inventory_result.skipped_records,
+            skipped_team_records=team_result.skipped_records,
         )
 
 

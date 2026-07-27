@@ -13,6 +13,15 @@ TEXT = "#172019"
 MUTED = "#667067"
 ORANGE = "#d55a17"
 BORDER = "#ddd9cd"
+CHART_COLORS = (
+    "#64784a",
+    "#d55a17",
+    "#89996e",
+    "#b9975b",
+    "#315b40",
+    "#c4774e",
+    "#9a9f91",
+)
 
 APP_STYLESHEET = f"""
 * {{
@@ -347,6 +356,50 @@ QLabel#financeValue {{
 QLabel#financeEmptyState {{
     color: {MUTED};
     font-size: 15px;
+}}
+
+QLabel#reportWarning {{
+    background: #fff6dc;
+    border: 1px solid #e5bd63;
+    border-radius: 9px;
+    color: #795813;
+    font-size: 13px;
+    padding: 10px 13px;
+}}
+
+QLabel#reportTotal {{
+    color: {DARK_GREEN};
+    font-size: 34px;
+    font-weight: 750;
+}}
+
+QLabel#reportTotalCaption,
+QLabel#reportEmptyState,
+QLabel#reportRanking {{
+    color: {MUTED};
+    font-size: 13px;
+}}
+
+QLabel#reportFinanceLabel {{
+    color: {TEXT};
+    font-size: 13px;
+}}
+
+QLabel#reportFinanceValue {{
+    color: {OLIVE};
+    font-size: 16px;
+    font-weight: 700;
+}}
+
+QFrame#reportMetric {{
+    background: #f3f1e8;
+    border: 1px solid #e3dfd3;
+    border-radius: 11px;
+}}
+
+QGraphicsView#reportChart {{
+    background: transparent;
+    border: none;
 }}
 
 QDialog#inventoryDialog {{

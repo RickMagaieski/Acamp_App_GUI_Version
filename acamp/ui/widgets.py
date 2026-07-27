@@ -2,8 +2,18 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtCharts import (
+    QAbstractBarSeries,
+    QBarCategoryAxis,
+    QBarSeries,
+    QBarSet,
+    QChart,
+    QChartView,
+    QPieSeries,
+    QValueAxis,
+)
+from PySide6.QtCore import QMargins, Qt
+from PySide6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -15,7 +25,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .theme import DARK_GREEN, OLIVE, ORANGE
+from .theme import (
+    BORDER,
+    CARD,
+    CHART_COLORS,
+    DARK_GREEN,
+    MUTED,
+    OLIVE,
+    ORANGE,
+    TEXT,
+)
 
 
 class SidebarButton(QPushButton):
@@ -174,6 +193,159 @@ class ChartPlaceholder(QLabel):
         self.setFixedSize(110, 110)
 
 
+class ReportChartCard(Card):
+    """Theme-aware QtCharts card with a safe empty state."""
+
+    def __init__(
+        self,
+        title: str,
+        subtitle: str = "",
+        parent: QWidget | None = None,
+    ):
+        super().__init__(title, subtitle, parent)
+        self.setMinimumHeight(320)
+        self.chart_view = QChartView()
+        self.chart_view.setObjectName("reportChart")
+        self.chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.chart_view.setMinimumHeight(235)
+        self.chart_view.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
+        self.empty_label = QLabel(
+            "Não há dados suficientes para gerar este relatório."
+        )
+        self.empty_label.setObjectName("reportEmptyState")
+        self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_label.setWordWrap(True)
+        self.empty_label.setMinimumHeight(235)
+        self.empty_label.hide()
+        self.body.addWidget(self.chart_view, 1)
+        self.body.addWidget(self.empty_label, 1)
+
+    def show_empty(self, message: str) -> None:
+        self.empty_label.setText(message)
+        self.chart_view.hide()
+        self.empty_label.show()
+
+    def set_pie_data(
+        self,
+        values: tuple[tuple[str, int], ...],
+    ) -> None:
+        positive_values = tuple(
+            (label, value)
+            for label, value in values
+            if value > 0
+        )
+        if not positive_values:
+            self.show_empty(
+                "Não há dados suficientes para gerar este relatório."
+            )
+            return
+
+        series = QPieSeries()
+        series.setHoleSize(0.46)
+        series.setPieSize(0.78)
+        for index, (label, value) in enumerate(positive_values):
+            pie_slice = series.append(label, value)
+            pie_slice.setColor(
+                QColor(CHART_COLORS[index % len(CHART_COLORS)])
+            )
+            pie_slice.setBorderColor(QColor(CARD))
+            pie_slice.setBorderWidth(2)
+            pie_slice.setLabel(f"{label}: {value}")
+            pie_slice.setLabelColor(QColor(TEXT))
+            pie_slice.setLabelVisible(True)
+
+        chart = self._new_chart()
+        chart.addSeries(series)
+        chart.legend().setVisible(True)
+        chart.legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
+        chart.legend().setLabelColor(QColor(TEXT))
+        self._show_chart(chart)
+
+    def set_bar_data(
+        self,
+        values: tuple[tuple[str, int], ...],
+        *,
+        label_angle: int = 0,
+    ) -> None:
+        if not values:
+            self.show_empty(
+                "Não há dados suficientes para gerar este relatório."
+            )
+            return
+
+        bar_set = QBarSet("")
+        bar_set.append([float(value) for _label, value in values])
+        bar_set.setColor(QColor(OLIVE))
+        bar_set.setBorderColor(QColor(DARK_GREEN))
+
+        series = QBarSeries()
+        series.append(bar_set)
+        series.setBarWidth(0.72)
+        series.setLabelsVisible(True)
+        series.setLabelsFormat("@value")
+        series.setLabelsPosition(
+            QAbstractBarSeries.LabelsPosition.LabelsOutsideEnd
+        )
+
+        chart = self._new_chart()
+        chart.addSeries(series)
+        chart.legend().setVisible(False)
+
+        category_axis = QBarCategoryAxis()
+        category_axis.append([label for label, _value in values])
+        category_axis.setLabelsAngle(label_angle)
+        category_axis.setLabelsColor(QColor(TEXT))
+        category_axis.setLinePenColor(QColor(BORDER))
+        chart.addAxis(category_axis, Qt.AlignmentFlag.AlignBottom)
+        series.attachAxis(category_axis)
+
+        numeric_values = [value for _label, value in values]
+        lower, upper = self._bar_range(numeric_values)
+        value_axis = QValueAxis()
+        value_axis.setRange(lower, upper)
+        value_axis.setTickCount(5)
+        value_axis.setLabelFormat("%d")
+        value_axis.setLabelsColor(QColor(MUTED))
+        value_axis.setGridLinePen(QPen(QColor("#e8e4d9"), 1))
+        value_axis.setLinePenColor(QColor(BORDER))
+        chart.addAxis(value_axis, Qt.AlignmentFlag.AlignLeft)
+        series.attachAxis(value_axis)
+        self._show_chart(chart)
+
+    @staticmethod
+    def _bar_range(values: list[int]) -> tuple[float, float]:
+        minimum = min(values)
+        maximum = max(values)
+        if minimum == maximum == 0:
+            return -1.0, 1.0
+        if minimum >= 0:
+            return 0.0, float(maximum) * 1.2 or 1.0
+        if maximum <= 0:
+            return float(minimum) * 1.2, 0.0
+        padding = max(1.0, float(maximum - minimum) * 0.12)
+        return float(minimum) - padding, float(maximum) + padding
+
+    @staticmethod
+    def _new_chart() -> QChart:
+        chart = QChart()
+        chart.setBackgroundVisible(False)
+        chart.setPlotAreaBackgroundVisible(False)
+        chart.setMargins(QMargins(0, 0, 0, 0))
+        chart.setTitleBrush(QBrush(QColor(TEXT)))
+        return chart
+
+    def _show_chart(self, chart: QChart) -> None:
+        previous_chart = self.chart_view.chart()
+        self.chart_view.setChart(chart)
+        if previous_chart is not chart:
+            previous_chart.deleteLater()
+        self.empty_label.hide()
+        self.chart_view.show()
+
+
 class CampLandscape(QWidget):
     """Small code-drawn landscape motif inspired by the reference footer."""
 
@@ -227,4 +399,3 @@ class CampLandscape(QWidget):
         painter.setPen(QPen(QColor(ORANGE), 2))
         painter.drawLine(int(center_x), int(height * 0.42), int(center_x), int(height * 0.25))
         painter.drawLine(int(center_x), int(height * 0.25), int(center_x + 14), int(height * 0.3))
-

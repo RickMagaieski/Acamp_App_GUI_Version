@@ -17,6 +17,7 @@ from acamp.models import (
     format_currency,
 )
 from acamp.pricing import ParticipantPayment
+from acamp.reporting import TeamRankingEntry, rank_teams
 
 
 def filter_participants(
@@ -382,28 +383,6 @@ class TeamMemberTableModel(QAbstractTableModel):
         if 0 <= row < len(self._members):
             return self._members[row]
         return None
-
-
-@dataclass(frozen=True, slots=True)
-class TeamRankingEntry:
-    position: int
-    team: Team
-
-
-def rank_teams(teams: Sequence[Team]) -> tuple[TeamRankingEntry, ...]:
-    ordered = sorted(
-        teams,
-        key=lambda team: (-team.score_value, team.source_index),
-    )
-    entries: list[TeamRankingEntry] = []
-    previous_score: int | None = None
-    previous_position = 0
-    for index, team in enumerate(ordered):
-        if previous_score is None or team.score_value != previous_score:
-            previous_position = index + 1
-            previous_score = team.score_value
-        entries.append(TeamRankingEntry(previous_position, team))
-    return tuple(entries)
 
 
 class TeamRankingTableModel(QAbstractTableModel):
