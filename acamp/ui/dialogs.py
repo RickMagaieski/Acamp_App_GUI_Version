@@ -6,21 +6,27 @@ from collections.abc import Callable
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
+    QPushButton,
     QSpinBox,
+    QTableView,
     QTextEdit,
     QVBoxLayout,
 )
 
 from acamp.models import InventoryDraft
+from acamp.pricing import ParticipantPayment
 from acamp.services import (
     InventoryOperationResult,
     validate_inventory_draft,
 )
+from acamp.ui.models import PaymentTableModel
 
 
 class AddInventoryItemDialog(QDialog):
@@ -104,3 +110,54 @@ class AddInventoryItemDialog(QDialog):
             result.message or "Não foi possível salvar as alterações."
         )
         self.validation_label.show()
+
+
+class PaymentDetailsDialog(QDialog):
+    """Read-only participant payment details for Phase 2C."""
+
+    def __init__(
+        self,
+        payments: tuple[ParticipantPayment, ...],
+        parent=None,
+    ):
+        super().__init__(parent)
+        self.setObjectName("paymentDialog")
+        self.setWindowTitle("Detalhes dos pagamentos")
+        self.setModal(True)
+        self.resize(980, 600)
+        self.setMinimumSize(760, 440)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(22, 20, 22, 20)
+        layout.setSpacing(14)
+
+        title = QLabel("Pagamentos dos participantes")
+        title.setObjectName("dialogTitle")
+        layout.addWidget(title)
+
+        if payments:
+            table = QTableView()
+            table.setObjectName("paymentTable")
+            table.setModel(PaymentTableModel(payments, table))
+            table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+            table.setShowGrid(False)
+            table.verticalHeader().setVisible(False)
+            table.verticalHeader().setDefaultSectionSize(44)
+            table.horizontalHeader().setSectionResizeMode(
+                QHeaderView.ResizeMode.ResizeToContents
+            )
+            table.horizontalHeader().setSectionResizeMode(
+                0, QHeaderView.ResizeMode.Stretch
+            )
+            layout.addWidget(table)
+        else:
+            empty = QLabel("Não há pagamentos para exibir.")
+            empty.setObjectName("financeEmptyState")
+            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(empty, 1)
+
+        close_button = QPushButton("Fechar")
+        close_button.setObjectName("primaryButton")
+        close_button.clicked.connect(self.accept)
+        layout.addWidget(close_button, 0, Qt.AlignmentFlag.AlignRight)

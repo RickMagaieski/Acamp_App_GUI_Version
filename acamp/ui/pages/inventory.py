@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtCore import QModelIndex, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -23,6 +23,8 @@ from ..widgets import Card, PageScaffold, PrimaryButton
 
 
 class InventoryPage(PageScaffold):
+    inventory_changed = Signal()
+
     def __init__(self, service: InventoryService):
         super().__init__(
             "INVENTÁRIO",
@@ -156,6 +158,7 @@ class InventoryPage(PageScaffold):
         result = self._service.add_item(draft)
         if result.succeeded:
             self.refresh_from_service()
+            self.inventory_changed.emit()
         else:
             self._show_save_error(result.message)
         return result
@@ -180,6 +183,7 @@ class InventoryPage(PageScaffold):
         result = self._service.delete_item(item.source_index)
         if result.succeeded:
             self.refresh_from_service()
+            self.inventory_changed.emit()
         else:
             self._show_save_error(result.message)
 

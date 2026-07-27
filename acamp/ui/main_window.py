@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from acamp.repositories import ParticipantLoadResult
-from acamp.services import InventoryService
+from acamp.services import FinanceService, InventoryService
 
 from .pages.activities import ActivitiesPage
 from .pages.dashboard import DashboardPage
@@ -68,8 +68,13 @@ class MainWindow(QMainWindow):
 
         participant_result = participant_result or ParticipantLoadResult.empty()
         inventory_service = inventory_service or InventoryService()
+        self.finance_service = FinanceService(
+            participant_result,
+            inventory_service,
+        )
         self.registrations_page: RegistrationsPage | None = None
         self.inventory_page: InventoryPage | None = None
+        self.finance_page: FinancePage | None = None
         for _icon, _label, page_class in self.PAGE_DEFINITIONS:
             if page_class is RegistrationsPage:
                 page = page_class(participant_result)
@@ -77,9 +82,17 @@ class MainWindow(QMainWindow):
             elif page_class is InventoryPage:
                 page = page_class(inventory_service)
                 self.inventory_page = page
+            elif page_class is FinancePage:
+                page = page_class(self.finance_service)
+                self.finance_page = page
             else:
                 page = page_class()
             self.page_stack.addWidget(page)
+
+        if self.inventory_page is not None:
+            self.inventory_page.inventory_changed.connect(
+                self._refresh_finance_page
+            )
 
         self.navigation_buttons[0].setChecked(True)
         self.navigate_to(0)
@@ -145,14 +158,23 @@ class MainWindow(QMainWindow):
             return
         self.page_stack.setCurrentIndex(index)
         self.navigation_buttons[index].setChecked(True)
+        if self.page_stack.widget(index) is self.finance_page:
+            self._refresh_finance_page()
 
     def set_participant_result(self, result: ParticipantLoadResult) -> None:
+        self.finance_service.set_participant_result(result)
         if self.registrations_page is not None:
             self.registrations_page.set_load_result(result)
+        self._refresh_finance_page()
 
     def refresh_inventory_page(self) -> None:
         if self.inventory_page is not None:
             self.inventory_page.refresh_from_service()
+        self._refresh_finance_page()
+
+    def _refresh_finance_page(self) -> None:
+        if self.finance_page is not None:
+            self.finance_page.refresh_from_service()
 
     @property
     def current_page_index(self) -> int:

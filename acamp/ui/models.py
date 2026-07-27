@@ -9,7 +9,8 @@ from typing import Sequence
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
 
-from acamp.models import InventoryItem, Participant
+from acamp.models import InventoryItem, Participant, format_currency
+from acamp.pricing import ParticipantPayment
 
 
 def filter_participants(
@@ -199,4 +200,55 @@ class InventoryTableModel(QAbstractTableModel):
     def item_at(self, row: int) -> InventoryItem | None:
         if 0 <= row < len(self._items):
             return self._items[row]
+        return None
+
+
+class PaymentTableModel(QAbstractTableModel):
+    HEADERS = (
+        "Nome",
+        "Tipo de inscrição",
+        "Valor esperado",
+        "Valor pago",
+        "Valor pendente",
+        "Status",
+    )
+
+    def __init__(self, payments: Sequence[ParticipantPayment] = (), parent=None):
+        super().__init__(parent)
+        self._payments = tuple(payments)
+
+    def rowCount(self, parent=QModelIndex()) -> int:  # noqa: N802
+        return 0 if parent.isValid() else len(self._payments)
+
+    def columnCount(self, parent=QModelIndex()) -> int:  # noqa: N802
+        return 0 if parent.isValid() else len(self.HEADERS)
+
+    def data(self, index: QModelIndex, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid() or not 0 <= index.row() < len(self._payments):
+            return None
+
+        payment = self._payments[index.row()]
+        values = (
+            payment.name,
+            payment.registration_type,
+            format_currency(payment.expected),
+            format_currency(payment.paid),
+            format_currency(payment.remaining),
+            payment.status.value,
+        )
+        if role == Qt.ItemDataRole.DisplayRole:
+            return values[index.column()]
+        if role == Qt.ItemDataRole.TextAlignmentRole:
+            if index.column() in (0, 1):
+                return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+            return Qt.AlignmentFlag.AlignCenter
+        return None
+
+    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):  # noqa: N802
+        if (
+            role == Qt.ItemDataRole.DisplayRole
+            and orientation == Qt.Orientation.Horizontal
+            and 0 <= section < len(self.HEADERS)
+        ):
+            return self.HEADERS[section]
         return None

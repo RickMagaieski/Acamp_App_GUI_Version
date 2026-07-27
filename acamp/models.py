@@ -30,16 +30,21 @@ def _safe_age(value: Any) -> str:
     return str(int(number))
 
 
-def _safe_payment(value: Any) -> str:
+def _safe_payment_amount(value: Any) -> Decimal | None:
     if isinstance(value, bool) or value is None or str(value).strip() == "":
-        return "-"
+        return None
     try:
         amount = Decimal(str(value).strip())
     except (InvalidOperation, ValueError, TypeError):
-        return "-"
-    if not amount.is_finite():
-        return "-"
-    return f"${amount:,.2f}"
+        return None
+    if not amount.is_finite() or amount < 0:
+        return None
+    return amount
+
+
+def _safe_payment(value: Any) -> str:
+    amount = _safe_payment_amount(value)
+    return "-" if amount is None else f"${amount:,.2f}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +56,7 @@ class Participant:
     phone: str
     inscription: str
     payment: str
+    payment_amount: Decimal | None
     accommodation: str
     transportation: str
     medical: str
@@ -66,6 +72,7 @@ class Participant:
             phone=_safe_text(record.get("phone")),
             inscription=_safe_text(record.get("inscription")),
             payment=_safe_payment(record.get("payment")),
+            payment_amount=_safe_payment_amount(record.get("payment")),
             accommodation=_safe_text(record.get("accommodation")),
             transportation=_safe_text(record.get("transportation")),
             medical=_safe_text(record.get("medical")),
@@ -105,7 +112,11 @@ def _inventory_value(value: Any) -> Decimal | None:
 
 
 def format_currency(value: Decimal | None) -> str:
-    return "-" if value is None else f"${value:,.2f}"
+    if value is None:
+        return "-"
+    if value < 0:
+        return f"-${abs(value):,.2f}"
+    return f"${value:,.2f}"
 
 
 @dataclass(frozen=True, slots=True)

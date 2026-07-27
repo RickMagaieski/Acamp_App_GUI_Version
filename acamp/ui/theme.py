@@ -197,6 +197,19 @@ QTableView#inventoryTable {{
     selection-background-color: #edf0e5;
 }}
 
+QTableView#paymentTable {{
+    background: {CARD};
+    border: 1px solid {BORDER};
+    border-radius: 12px;
+    color: {TEXT};
+    font-size: 13px;
+}}
+
+QTableView#paymentTable::item {{
+    border-bottom: 1px solid #ebe8df;
+    padding: 6px 10px;
+}}
+
 QTableView#inventoryTable::item {{
     border-bottom: 1px solid #ebe8df;
     padding: 6px 10px;
@@ -250,7 +263,40 @@ QLabel#inventoryError, QLabel#dialogError {{
     padding: 9px 12px;
 }}
 
+QLabel#financeWarning {{
+    background: #fff6dc;
+    border: 1px solid #e5bd63;
+    border-radius: 9px;
+    color: #795813;
+    font-size: 13px;
+    padding: 10px 13px;
+}}
+
+QWidget#financeValueRow {{
+    border-bottom: 1px solid #ebe8df;
+}}
+
+QLabel#financeLabel {{
+    color: {TEXT};
+    font-size: 13px;
+}}
+
+QLabel#financeValue {{
+    color: {OLIVE};
+    font-size: 14px;
+    font-weight: 700;
+}}
+
+QLabel#financeEmptyState {{
+    color: {MUTED};
+    font-size: 15px;
+}}
+
 QDialog#inventoryDialog {{
+    background: {CREAM};
+}}
+
+QDialog#paymentDialog {{
     background: {CREAM};
 }}
 

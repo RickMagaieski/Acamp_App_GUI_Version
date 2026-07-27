@@ -12,8 +12,10 @@ from .models import InventoryDraft, InventoryItem
 from .repositories import (
     InventoryLoadResult,
     InventoryRepository,
+    ParticipantLoadResult,
     inventory_result_from_records,
 )
+from .pricing import FinancialSnapshot, calculate_financial_snapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,3 +156,34 @@ class InventoryService:
 
         self._result = inventory_result_from_records(proposed_records)
         return InventoryOperationResult(True)
+
+
+class FinanceService:
+    """Calculates finances from the shared participant and inventory state."""
+
+    def __init__(
+        self,
+        participant_result: ParticipantLoadResult,
+        inventory_service: InventoryService,
+    ):
+        self._participant_result = participant_result
+        self._inventory_service = inventory_service
+
+    def set_participant_result(self, result: ParticipantLoadResult) -> None:
+        self._participant_result = result
+
+    @property
+    def participant_result(self) -> ParticipantLoadResult:
+        return self._participant_result
+
+    @property
+    def inventory_result(self) -> InventoryLoadResult:
+        return self._inventory_service.load_result
+
+    def snapshot(self) -> FinancialSnapshot:
+        return calculate_financial_snapshot(
+            self._participant_result.participants,
+            self._inventory_service.items,
+            participants_available=self._participant_result.succeeded,
+            inventory_available=self._inventory_service.load_result.succeeded,
+        )
