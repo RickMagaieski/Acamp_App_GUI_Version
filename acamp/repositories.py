@@ -47,8 +47,37 @@ class ParticipantLoadResult:
         return cls(ParticipantLoadStatus.LOADING)
 
 
+@dataclass(frozen=True, slots=True)
+class ParticipantSaveResult:
+    succeeded: bool
+    technical_code: str = ""
+
+
+def participant_result_from_records(
+    records: Sequence[Any],
+) -> ParticipantLoadResult:
+    participants: list[Participant] = []
+    skipped_records = 0
+    for record in records:
+        if not isinstance(record, dict):
+            skipped_records += 1
+            continue
+        participants.append(Participant.from_mapping(record))
+
+    status = (
+        ParticipantLoadStatus.VALID
+        if participants
+        else ParticipantLoadStatus.VALID_EMPTY
+    )
+    return ParticipantLoadResult(
+        status=status,
+        participants=tuple(participants),
+        skipped_records=skipped_records,
+    )
+
+
 class ParticipantRepository:
-    """Loads the participant cache exactly once per explicit ``load`` call."""
+    """Loads and atomically replaces the local participant cache."""
 
     def __init__(self, path: Path):
         self._path = Path(path)
@@ -82,24 +111,41 @@ class ParticipantRepository:
                 technical_code="participant_json_root_not_list",
             )
 
-        participants: list[Participant] = []
-        skipped_records = 0
-        for record in raw_records:
-            if not isinstance(record, dict):
-                skipped_records += 1
-                continue
-            participants.append(Participant.from_mapping(record))
+        return participant_result_from_records(raw_records)
 
-        status = (
-            ParticipantLoadStatus.VALID
-            if participants
-            else ParticipantLoadStatus.VALID_EMPTY
-        )
-        return ParticipantLoadResult(
-            status=status,
-            participants=tuple(participants),
-            skipped_records=skipped_records,
-        )
+    def save(self, records: Sequence[Any]) -> ParticipantSaveResult:
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self._path.parent,
+                prefix=f".{self._path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as temporary:
+                temporary_path = Path(temporary.name)
+                json.dump(
+                    list(records),
+                    temporary,
+                    ensure_ascii=False,
+                    indent=4,
+                )
+                temporary.write("\n")
+                temporary.flush()
+                os.fsync(temporary.fileno())
+            os.replace(temporary_path, self._path)
+            return ParticipantSaveResult(True)
+        except (OSError, TypeError, ValueError):
+            if temporary_path is not None:
+                try:
+                    temporary_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            return ParticipantSaveResult(
+                False,
+                technical_code="participant_atomic_save_failed",
+            )
 
 
 class InventoryLoadStatus(str, Enum):

@@ -19,13 +19,17 @@ from .repositories import (
     InventoryLoadResult,
     InventoryRepository,
     ParticipantLoadResult,
+    ParticipantLoadStatus,
+    ParticipantRepository,
     TeamLoadResult,
     TeamRepository,
     team_result_from_records,
     inventory_result_from_records,
+    participant_result_from_records,
 )
 from .pricing import FinancialSnapshot, calculate_financial_snapshot
 from .reporting import ReportSnapshot, build_report_snapshot
+from .sheets_gateway import GoogleSheetsGateway, SheetsGatewayError
 
 
 @dataclass(frozen=True, slots=True)
@@ -226,6 +230,97 @@ class ReportingService:
             skipped_participant_records=participant_result.skipped_records,
             skipped_inventory_records=inventory_result.skipped_records,
             skipped_team_records=team_result.skipped_records,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ParticipantSynchronizationResult:
+    succeeded: bool
+    message: str
+    participant_result: ParticipantLoadResult | None = None
+    loaded_count: int = 0
+    skipped_rows: int = 0
+    warning_rows: int = 0
+    technical_code: str = ""
+
+
+class SynchronizationService:
+    """Downloads and persists participants without changing live UI state."""
+
+    _DAMAGED_CACHE_STATUSES = {
+        ParticipantLoadStatus.INVALID_JSON,
+        ParticipantLoadStatus.ROOT_NOT_LIST,
+    }
+
+    def __init__(
+        self,
+        gateway: GoogleSheetsGateway,
+        participant_repository: ParticipantRepository,
+    ):
+        self._gateway = gateway
+        self._participant_repository = participant_repository
+
+    def local_cache_requires_replacement_confirmation(self) -> bool:
+        return (
+            self._participant_repository.load().status
+            in self._DAMAGED_CACHE_STATUSES
+        )
+
+    def synchronize(
+        self,
+        *,
+        allow_damaged_cache_replacement: bool = False,
+    ) -> ParticipantSynchronizationResult:
+        if (
+            self.local_cache_requires_replacement_confirmation()
+            and not allow_damaged_cache_replacement
+        ):
+            return ParticipantSynchronizationResult(
+                succeeded=False,
+                message=(
+                    "O arquivo local de inscrições está danificado e "
+                    "precisa de confirmação antes de ser substituído."
+                ),
+                technical_code="damaged_cache_confirmation_required",
+            )
+        try:
+            downloaded = self._gateway.download_participants()
+        except SheetsGatewayError as error:
+            return ParticipantSynchronizationResult(
+                succeeded=False,
+                message=error.user_message,
+                technical_code=error.technical_code,
+            )
+        except Exception:
+            return ParticipantSynchronizationResult(
+                succeeded=False,
+                message="Não foi possível conectar ao Google Sheets.",
+                technical_code="unexpected_gateway_failure",
+            )
+
+        participant_result = participant_result_from_records(
+            downloaded.records
+        )
+        saved = self._participant_repository.save(downloaded.records)
+        if not saved.succeeded:
+            return ParticipantSynchronizationResult(
+                succeeded=False,
+                message=(
+                    "Os dados foram baixados, mas não puderam ser salvos."
+                ),
+                loaded_count=downloaded.loaded_count,
+                skipped_rows=downloaded.skipped_rows,
+                warning_rows=downloaded.warning_rows,
+                technical_code=saved.technical_code,
+            )
+
+        return ParticipantSynchronizationResult(
+            succeeded=True,
+            message="Sincronização concluída.",
+            participant_result=participant_result,
+            loaded_count=downloaded.loaded_count,
+            skipped_rows=downloaded.skipped_rows,
+            warning_rows=downloaded.warning_rows,
         )
 
 

@@ -289,13 +289,13 @@ class DashboardApplicationTests(unittest.TestCase):
                 self.assertTrue(window.navigation_buttons[4].isChecked())
 
                 with patch(
-                    "acamp.ui.pages.dashboard.QMessageBox.information"
-                ) as information:
+                    "acamp.ui.pages.dashboard.QMessageBox.warning"
+                ) as warning:
                     dashboard.sync_button.click()
-                information.assert_called_once()
+                warning.assert_called_once()
                 self.assertEqual(
                     dashboard.sync_status_label.text(),
-                    "Ainda não sincronizado nesta versão",
+                    "Ainda não sincronizado nesta sessão.",
                 )
 
                 visible_text = "\n".join(

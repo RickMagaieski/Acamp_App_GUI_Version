@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from datetime import datetime
+
+from PySide6.QtCore import QThread, Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QSizePolicy,
     QStackedWidget,
     QVBoxLayout,
@@ -19,8 +23,10 @@ from acamp.services import (
     FinanceService,
     InventoryService,
     ReportingService,
+    SynchronizationService,
     TeamService,
 )
+from acamp.workers import ParticipantSynchronizationWorker
 
 from .pages.activities import ActivitiesPage
 from .pages.dashboard import DashboardPage
@@ -46,6 +52,7 @@ class MainWindow(QMainWindow):
         participant_result: ParticipantLoadResult | None = None,
         inventory_service: InventoryService | None = None,
         team_service: TeamService | None = None,
+        synchronization_service: SynchronizationService | None = None,
     ):
         super().__init__()
         self.setWindowTitle("ACAMP WBSDAC 2026")
@@ -75,6 +82,9 @@ class MainWindow(QMainWindow):
         participant_result = participant_result or ParticipantLoadResult.empty()
         inventory_service = inventory_service or InventoryService()
         team_service = team_service or TeamService()
+        self._synchronization_service = synchronization_service
+        self._sync_thread: QThread | None = None
+        self._sync_worker: ParticipantSynchronizationWorker | None = None
         self.finance_service = FinanceService(
             participant_result,
             inventory_service,
@@ -122,6 +132,9 @@ class MainWindow(QMainWindow):
             )
         if self.dashboard_page is not None:
             self.dashboard_page.navigate_requested.connect(self.navigate_to)
+            self.dashboard_page.sync_requested.connect(
+                self._start_participant_sync
+            )
 
         self.navigation_buttons[0].setChecked(True)
         self.navigate_to(0)
@@ -230,6 +243,112 @@ class MainWindow(QMainWindow):
         self._refresh_finance_page()
         self._refresh_reports_page()
         self._refresh_dashboard_page()
+
+    def _start_participant_sync(self) -> None:
+        if self._sync_thread is not None:
+            return
+        if self.dashboard_page is None:
+            return
+        if self._synchronization_service is None:
+            self.dashboard_page.show_sync_error(
+                "A sincronização não está configurada."
+            )
+            return
+
+        try:
+            damaged_cache = (
+                self._synchronization_service
+                .local_cache_requires_replacement_confirmation()
+            )
+        except Exception:
+            self.dashboard_page.show_sync_error(
+                "Não foi possível verificar o arquivo local de inscrições."
+            )
+            return
+
+        if damaged_cache:
+            confirmation_message = (
+                "O arquivo local de inscrições está danificado. "
+                "A sincronização substituirá esse arquivo pelos dados "
+                "baixados do Google Sheets. Deseja continuar?"
+            )
+        else:
+            confirmation_message = (
+                "A sincronização substituirá a lista local de inscrições "
+                "pelos dados atuais do Google Sheets. Deseja continuar?"
+            )
+        answer = QMessageBox.question(
+            self,
+            "Sincronizar Google Sheets",
+            confirmation_message,
+            QMessageBox.StandardButton.Yes
+            | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        thread = QThread(self)
+        worker = ParticipantSynchronizationWorker(
+            self._synchronization_service,
+            allow_damaged_cache_replacement=damaged_cache,
+        )
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.progress.connect(self._participant_sync_progress)
+        worker.succeeded.connect(self._participant_sync_succeeded)
+        worker.failed.connect(self._participant_sync_failed)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(self._participant_sync_finished)
+        thread.finished.connect(thread.deleteLater)
+
+        self._sync_thread = thread
+        self._sync_worker = worker
+        self.dashboard_page.set_sync_busy(True)
+        thread.start()
+
+    def _participant_sync_progress(self, _message: str) -> None:
+        if self.dashboard_page is not None:
+            self.dashboard_page.set_sync_busy(True)
+
+    def _participant_sync_succeeded(self, result) -> None:
+        if result.participant_result is None:
+            self._participant_sync_failed(
+                "O Google Sheets retornou um resultado inválido."
+            )
+            return
+        self.set_participant_result(result.participant_result)
+        if self.dashboard_page is not None:
+            self.dashboard_page.show_sync_success(
+                result,
+                datetime.now().astimezone(),
+            )
+
+    def _participant_sync_failed(self, message: str) -> None:
+        if self.dashboard_page is not None:
+            self.dashboard_page.show_sync_error(message)
+
+    def _participant_sync_finished(self) -> None:
+        if self.dashboard_page is not None:
+            self.dashboard_page.set_sync_busy(False)
+        self._sync_worker = None
+        self._sync_thread = None
+
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
+        if (
+            self._sync_thread is not None
+            and self._sync_thread.isRunning()
+        ):
+            QMessageBox.information(
+                self,
+                "Sincronização em andamento",
+                "Aguarde a sincronização terminar antes de fechar "
+                "o aplicativo.",
+            )
+            event.ignore()
+            return
+        super().closeEvent(event)
 
     @property
     def current_page_index(self) -> int:

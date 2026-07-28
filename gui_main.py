@@ -8,13 +8,19 @@ from pathlib import Path
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
+from acamp.config import GoogleSheetsConfig
 from acamp.repositories import (
     InventoryRepository,
     ParticipantLoadResult,
     ParticipantRepository,
     TeamRepository,
 )
-from acamp.services import InventoryService, TeamService
+from acamp.services import (
+    InventoryService,
+    SynchronizationService,
+    TeamService,
+)
+from acamp.sheets_gateway import GoogleSheetsGateway
 from acamp.ui.main_window import MainWindow
 from acamp.ui.theme import APP_STYLESHEET
 
@@ -45,7 +51,16 @@ def create_application(
     team_service = TeamService(
         TeamRepository(project_root / "teams.json")
     )
-    window = MainWindow(participant_state, inventory_service, team_service)
+    synchronization_service = SynchronizationService(
+        GoogleSheetsGateway(GoogleSheetsConfig(project_root)),
+        participant_repository,
+    )
+    window = MainWindow(
+        participant_state,
+        inventory_service,
+        team_service,
+        synchronization_service,
+    )
 
     def load_local_state() -> None:
         if load_participants:

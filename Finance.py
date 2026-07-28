@@ -72,6 +72,7 @@ def payments():
                         print(f"(Parcial... Deve: ${27.50 - person['payment']:.2f})")
                     elif person['payment'] == 0.00:
                         print("(Pendente!)")
+
                 if person['payment'] > 135:
                     print("(Pago!)")
 

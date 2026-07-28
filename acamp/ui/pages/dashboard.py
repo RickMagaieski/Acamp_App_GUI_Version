@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QGridLayout,
@@ -14,7 +16,10 @@ from PySide6.QtWidgets import (
 
 from acamp.models import format_currency
 from acamp.reporting import ReportSnapshot
-from acamp.services import ReportingService
+from acamp.services import (
+    ParticipantSynchronizationResult,
+    ReportingService,
+)
 
 from ..widgets import (
     CampLandscape,
@@ -43,6 +48,7 @@ def _summary_row(label: str) -> tuple[QWidget, QLabel]:
 
 class DashboardPage(PageScaffold):
     navigate_requested = Signal(int)
+    sync_requested = Signal()
 
     REGISTRATIONS_PAGE = 1
     FINANCE_PAGE = 2
@@ -53,18 +59,20 @@ class DashboardPage(PageScaffold):
     def __init__(self, service: ReportingService):
         self._service = service
         self.last_snapshot: ReportSnapshot | None = None
+        self._last_sync_status_text = (
+            "Ainda não sincronizado nesta sessão."
+        )
 
         sync_panel = QWidget()
         sync_layout = QVBoxLayout(sync_panel)
         sync_layout.setContentsMargins(0, 0, 0, 0)
         sync_layout.setSpacing(5)
-        self.sync_button = PrimaryButton("▣  Atualizar Dados")
+        self.sync_button = PrimaryButton("▣  Sincronizar Google Sheets")
         self.sync_button.setToolTip(
-            "A sincronização será implementada na próxima etapa."
+            "Baixar manualmente as inscrições da planilha configurada."
         )
-        self.sync_button.clicked.connect(self._show_sync_pending)
         self.sync_status_label = QLabel(
-            "Ainda não sincronizado nesta versão"
+            self._last_sync_status_text
         )
         self.sync_status_label.setObjectName("dashboardSyncStatus")
         self.sync_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -77,6 +85,7 @@ class DashboardPage(PageScaffold):
             "⌁",
             sync_panel,
         )
+        self.sync_button.clicked.connect(self.sync_requested.emit)
 
         self.warning_banner = QLabel()
         self.warning_banner.setObjectName("dashboardWarning")
@@ -397,9 +406,70 @@ class DashboardPage(PageScaffold):
         self.warning_banner.setText("  •  ".join(messages))
         self.warning_banner.setVisible(bool(messages))
 
-    def _show_sync_pending(self) -> None:
+    def set_sync_busy(self, busy: bool) -> None:
+        self.sync_button.setEnabled(not busy)
+        self.sync_button.setText(
+            "Sincronizando..."
+            if busy
+            else "▣  Sincronizar Google Sheets"
+        )
+        self.sync_status_label.setText(
+            "Sincronizando..."
+            if busy
+            else self._last_sync_status_text
+        )
+
+    def show_sync_success(
+        self,
+        result: ParticipantSynchronizationResult,
+        completed_at: datetime,
+    ) -> None:
+        self._last_sync_status_text = (
+            "Última sincronização nesta sessão: "
+            f"{completed_at.astimezone().strftime('%d/%m/%Y %H:%M:%S')}"
+        )
+        self.sync_status_label.setText(self._last_sync_status_text)
+
+        participant_label = (
+            "participante carregado"
+            if result.loaded_count == 1
+            else "participantes carregados"
+        )
+        message = (
+            "Sincronização concluída. "
+            f"{result.loaded_count} {participant_label}."
+        )
+        details: list[str] = []
+        if result.skipped_rows:
+            row_label = (
+                "linha ignorada"
+                if result.skipped_rows == 1
+                else "linhas ignoradas"
+            )
+            details.append(f"{result.skipped_rows} {row_label}")
+        if result.warning_rows:
+            row_label = (
+                "linha ajustada"
+                if result.warning_rows == 1
+                else "linhas ajustadas"
+            )
+            details.append(f"{result.warning_rows} {row_label}")
+        if details:
+            message = (
+                "Sincronização concluída com avisos. "
+                f"{result.loaded_count} {participant_label}; "
+                f"{' e '.join(details)}."
+            )
+
         QMessageBox.information(
             self,
-            "Sincronização ainda não disponível",
-            "A sincronização será implementada na próxima etapa.",
+            "Google Sheets",
+            message,
+        )
+
+    def show_sync_error(self, message: str) -> None:
+        QMessageBox.warning(
+            self,
+            "Não foi possível sincronizar",
+            message,
         )
