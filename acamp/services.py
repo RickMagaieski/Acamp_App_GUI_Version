@@ -1,4 +1,4 @@
-"""Application services for controlled inventory mutations."""
+"""Application services and shared business workflows."""
 
 from __future__ import annotations
 

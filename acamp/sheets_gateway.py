@@ -167,7 +167,11 @@ class GoogleSheetsGateway:
     ) -> SheetRowDeletionResult:
         """Delete exactly one data row matching the normalized hidden ID."""
 
-        normalized_id = str(participant_id).strip()
+        normalized_id = (
+            participant_id.strip()
+            if isinstance(participant_id, str)
+            else ""
+        )
         if not normalized_id:
             raise SheetsGatewayError(
                 (

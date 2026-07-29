@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication
 
 from acamp.models import InventoryDraft, InventoryItem
 from acamp.repositories import (
@@ -120,6 +120,15 @@ class InventoryServiceTests(unittest.TestCase):
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0].item, "Item Alfa")
 
+        accented = InventoryItem.from_mapping(
+            {"item": "Açúcar", "quantity": 1, "value": 2},
+            2,
+        )
+        self.assertEqual(
+            filter_inventory_items((accented,), "acucar"),
+            (accented,),
+        )
+
     def test_add_and_delete_persist_after_success(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "items.json"
@@ -216,8 +225,8 @@ class InventoryPageDeletionTests(unittest.TestCase):
                 page.table_model.ACTION_COLUMN,
             )
             with patch(
-                "acamp.ui.pages.inventory.QMessageBox.question",
-                return_value=QMessageBox.StandardButton.No,
+                "acamp.ui.pages.inventory.confirm_destructive",
+                return_value=False,
             ):
                 page._table_clicked(action)
             self.assertEqual(path.read_text(encoding="utf-8"), original)
@@ -232,8 +241,8 @@ class InventoryPageDeletionTests(unittest.TestCase):
                 page.table_model.ACTION_COLUMN,
             )
             with patch(
-                "acamp.ui.pages.inventory.QMessageBox.question",
-                return_value=QMessageBox.StandardButton.Yes,
+                "acamp.ui.pages.inventory.confirm_destructive",
+                return_value=True,
             ):
                 page._table_clicked(action)
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), [])

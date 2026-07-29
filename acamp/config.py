@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .paths import ApplicationPaths
+
 
 GOOGLE_SHEETS_SCOPES = (
     "https://www.googleapis.com/auth/spreadsheets",
@@ -33,8 +35,8 @@ class GoogleSheetsConfig:
 
     @property
     def client_secret_path(self) -> Path:
-        return self.project_root / "client_secret.json"
+        return ApplicationPaths(self.project_root).client_secret_file
 
     @property
     def token_path(self) -> Path:
-        return self.project_root / "token.json"
+        return ApplicationPaths(self.project_root).token_file

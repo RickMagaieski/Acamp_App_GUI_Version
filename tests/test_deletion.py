@@ -171,6 +171,19 @@ class GoogleRowDeletionTests(unittest.TestCase):
         )
         self.assertEqual(service.batch_calls, [])
 
+    def test_non_string_id_is_rejected_before_google_request(self):
+        service = _FakeSheetsService([["Cabeçalho"]])
+        gateway = self._gateway(service)
+
+        with self.assertRaises(SheetsGatewayError) as context:
+            gateway.delete_participant(None)
+
+        self.assertEqual(
+            context.exception.technical_code,
+            "participant_id_missing",
+        )
+        self.assertEqual(service.batch_calls, [])
+
     def test_missing_sheet_tab_is_controlled(self):
         service = _FakeSheetsService(
             [["Cabeçalho"], _sheet_row("ID-ALVO")],

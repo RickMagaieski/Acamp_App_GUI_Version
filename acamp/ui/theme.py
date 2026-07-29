@@ -132,7 +132,7 @@ QLabel#cardTitle {{
     font-weight: 700;
 }}
 
-QLabel#cardSubtitle, QLabel#placeholderText {{
+QLabel#cardSubtitle {{
     color: {MUTED};
     font-size: 13px;
 }}
@@ -196,23 +196,6 @@ QLineEdit#placeholderSearch {{
     color: {MUTED};
     font-size: 14px;
     padding: 11px 14px;
-}}
-
-QLabel#tableHeader {{
-    background: #eeece4;
-    color: {TEXT};
-    font-size: 12px;
-    font-weight: 700;
-    padding: 10px;
-}}
-
-QLabel#chartPlaceholder {{
-    background: #f1efe7;
-    border: 2px dashed #c8c6bb;
-    border-radius: 42px;
-    color: {OLIVE};
-    font-size: 12px;
-    font-weight: 600;
 }}
 
 QTableView#participantTable {{

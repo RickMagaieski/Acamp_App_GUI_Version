@@ -5,7 +5,6 @@ from __future__ import annotations
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -13,10 +12,10 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QTableView,
-    QVBoxLayout,
 )
 
 from acamp.repositories import ParticipantLoadResult, ParticipantLoadStatus
+from acamp.ui.dialogs import confirm_destructive
 from acamp.ui.models import (
     ParticipantTableModel,
     filter_participants,
@@ -196,27 +195,17 @@ class RegistrationsPage(PageScaffold):
             self.deletion_requested.emit(participant)
 
     def _confirm_deletion(self, participant_name: str) -> bool:
-        dialog = QMessageBox(self)
-        dialog.setIcon(QMessageBox.Icon.Question)
-        dialog.setWindowTitle("Remover inscrição")
-        dialog.setTextFormat(Qt.TextFormat.PlainText)
-        dialog.setText(
-            "Tem certeza de que deseja remover a inscrição de "
-            f"{participant_name}?\n\n"
-            "A inscrição será removida do Google Sheets e dos dados locais."
+        return confirm_destructive(
+            self,
+            title="Remover inscrição",
+            message=(
+                "Tem certeza de que deseja remover a inscrição de "
+                f"{participant_name}?\n\n"
+                "A inscrição será removida do Google Sheets e dos dados "
+                "locais."
+            ),
+            confirm_text="Remover",
         )
-        cancel_button = dialog.addButton(
-            "Cancelar",
-            QMessageBox.ButtonRole.RejectRole,
-        )
-        remove_button = dialog.addButton(
-            "Remover",
-            QMessageBox.ButtonRole.DestructiveRole,
-        )
-        remove_button.setObjectName("destructiveButton")
-        dialog.setDefaultButton(cancel_button)
-        dialog.exec()
-        return dialog.clickedButton() is remove_button
 
     def _load_state_message(self) -> str | None:
         messages = {

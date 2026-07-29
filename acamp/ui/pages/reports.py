@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QVBoxLayout,
-    QWidget,
 )
 
 from acamp.models import format_currency

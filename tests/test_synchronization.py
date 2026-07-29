@@ -14,11 +14,9 @@ from google.auth.exceptions import RefreshError
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from acamp.config import GoogleSheetsConfig
-from acamp.models import Participant
 from acamp.repositories import (
     InventoryRepository,
     ParticipantLoadResult,
-    ParticipantLoadStatus,
     ParticipantRepository,
     ParticipantSaveResult,
     TeamRepository,

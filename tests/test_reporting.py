@@ -9,7 +9,7 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
-from PySide6.QtWidgets import QApplication, QLabel, QMessageBox
+from PySide6.QtWidgets import QApplication, QLabel
 
 from acamp.models import Participant, Team
 from acamp.pricing import PaymentStatus, calculate_financial_snapshot
@@ -389,8 +389,8 @@ class ReportsApplicationStateTests(unittest.TestCase):
 
                 created_team = teams.teams[-1]
                 with patch(
-                    "acamp.ui.pages.activities.QMessageBox.question",
-                    return_value=QMessageBox.StandardButton.Yes,
+                    "acamp.ui.pages.activities.confirm_destructive",
+                    return_value=True,
                 ):
                     window.activities_page._confirm_delete_team(created_team)
                 self.assertEqual(

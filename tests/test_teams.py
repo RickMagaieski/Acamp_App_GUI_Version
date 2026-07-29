@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication
 
 from acamp.models import Team
 from acamp.repositories import (
@@ -117,6 +117,15 @@ class TeamServiceTests(unittest.TestCase):
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0].name, "Equipe Alfa")
 
+        accented = Team.from_mapping({
+            "equipe": "Coração",
+            "lider": "Líder",
+            "cor": "Verde",
+            "pessoas": [],
+            "score": 0,
+        }, 2)
+        self.assertEqual(filter_teams((accented,), "coracao"), (accented,))
+
     def test_create_starts_empty_and_delete_persists(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "teams.json"
@@ -184,7 +193,7 @@ class ActivitiesPageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             page = self._build_page(Path(directory) / "teams.json")
             index = page.table_model.index(0, 0)
-            page._table_clicked(index)
+            page._team_table_clicked(index)
             self.assertIsNotNone(page._selected_source_index)
             self.assertTrue(page.delete_selected_button.isEnabled())
             self.assertTrue(page.add_participant_button.isEnabled())
@@ -198,18 +207,18 @@ class ActivitiesPageTests(unittest.TestCase):
             original = path.read_text(encoding="utf-8")
             team = page.table_model.team_at(0)
             with patch(
-                "acamp.ui.pages.activities.QMessageBox.question",
-                return_value=QMessageBox.StandardButton.No,
+                "acamp.ui.pages.activities.confirm_destructive",
+                return_value=False,
             ):
-                page._confirm_delete(team)
+                page._confirm_delete_team(team)
             self.assertEqual(path.read_text(encoding="utf-8"), original)
             self.assertEqual(page.table_model.rowCount(), 1)
 
             with patch(
-                "acamp.ui.pages.activities.QMessageBox.question",
-                return_value=QMessageBox.StandardButton.Yes,
+                "acamp.ui.pages.activities.confirm_destructive",
+                return_value=True,
             ):
-                page._confirm_delete(team)
+                page._confirm_delete_team(team)
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), [])
             self.assertEqual(page.table_model.rowCount(), 0)
 

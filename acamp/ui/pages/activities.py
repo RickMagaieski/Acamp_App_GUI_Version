@@ -1,4 +1,4 @@
-"""Team members, scoring, and ranking for Phase 2D2."""
+"""Team management, members, scoring, and ranking."""
 
 from __future__ import annotations
 
@@ -9,24 +9,24 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QTableView,
 )
 
-from acamp.models import Team, TeamDraft, TeamMember, TeamMemberDraft
+from acamp.models import Team, TeamDraft, TeamMemberDraft
+from acamp.reporting import rank_teams
 from acamp.repositories import TeamLoadStatus
 from acamp.services import TeamOperationResult, TeamService
 from acamp.ui.dialogs import (
     AddTeamDialog,
     AddTeamMemberDialog,
     ScoreChangeDialog,
+    confirm_destructive,
 )
 from acamp.ui.models import (
     TeamMemberTableModel,
     TeamRankingTableModel,
     TeamTableModel,
     filter_teams,
-    rank_teams,
 )
 
 from ..widgets import Card, PageScaffold, PrimaryButton
@@ -288,10 +288,6 @@ class ActivitiesPage(PageScaffold):
         if index.column() == TeamTableModel.ACTION_COLUMN:
             self._confirm_delete_team(team)
 
-    # Phase 2D1 compatibility for existing focused tests.
-    def _table_clicked(self, index: QModelIndex) -> None:
-        self._team_table_clicked(index)
-
     def _ranking_clicked(self, index: QModelIndex) -> None:
         entry = self.ranking_model.entry_at(index.row())
         if entry is None:
@@ -453,14 +449,13 @@ class ActivitiesPage(PageScaffold):
             )
             return
 
-        answer = QMessageBox.question(
+        confirmed = confirm_destructive(
             self,
-            "Remover participante",
-            f'Remover "{member.name}" do time "{team.name}"?',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
+            title="Remover participante",
+            message=f'Remover "{member.name}" do time "{team.name}"?',
+            confirm_text="Remover",
         )
-        if answer != QMessageBox.StandardButton.Yes:
+        if not confirmed:
             return
         result = self._service.remove_member(
             team.source_index,
@@ -499,23 +494,18 @@ class ActivitiesPage(PageScaffold):
         self._confirm_delete_team(team)
 
     def _confirm_delete_team(self, team: Team) -> None:
-        answer = QMessageBox.question(
+        confirmed = confirm_destructive(
             self,
-            "Excluir time",
-            f'Deseja realmente excluir o time "{team.name}"?',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
+            title="Excluir time",
+            message=f'Deseja realmente excluir o time "{team.name}"?',
+            confirm_text="Excluir",
         )
-        if answer != QMessageBox.StandardButton.Yes:
+        if not confirmed:
             return
         result = self._service.delete_team(team.source_index)
         if result.succeeded:
             self._selected_source_index = None
         self._finish_mutation(result, preserve_selection=False)
-
-    # Phase 2D1 compatibility for existing focused tests.
-    def _confirm_delete(self, team: Team) -> None:
-        self._confirm_delete_team(team)
 
     def _finish_mutation(
         self,

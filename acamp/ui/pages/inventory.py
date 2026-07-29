@@ -1,4 +1,4 @@
-"""Functional local inventory page for Phase 2B."""
+"""Functional local inventory page."""
 
 from __future__ import annotations
 
@@ -9,14 +9,13 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QTableView,
 )
 
 from acamp.models import InventoryDraft
 from acamp.repositories import InventoryLoadStatus
 from acamp.services import InventoryOperationResult, InventoryService
-from acamp.ui.dialogs import AddInventoryItemDialog
+from acamp.ui.dialogs import AddInventoryItemDialog, confirm_destructive
 from acamp.ui.models import InventoryTableModel, filter_inventory_items
 
 from ..widgets import Card, PageScaffold, PrimaryButton
@@ -170,14 +169,13 @@ class InventoryPage(PageScaffold):
         if item is None:
             return
 
-        answer = QMessageBox.question(
+        confirmed = confirm_destructive(
             self,
-            "Excluir item",
-            f'Deseja realmente excluir "{item.item}"?',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
+            title="Excluir item",
+            message=f'Deseja realmente excluir "{item.item}"?',
+            confirm_text="Excluir",
         )
-        if answer != QMessageBox.StandardButton.Yes:
+        if not confirmed:
             return
 
         result = self._service.delete_item(item.source_index)

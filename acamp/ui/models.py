@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass
 from math import ceil
 from typing import Sequence
@@ -17,20 +18,31 @@ from acamp.models import (
     format_currency,
 )
 from acamp.pricing import ParticipantPayment
-from acamp.reporting import TeamRankingEntry, rank_teams
+from acamp.reporting import TeamRankingEntry
+
+
+def normalize_search_text(value: str) -> str:
+    """Normalize case and accents for forgiving Portuguese search."""
+
+    text = value.strip().casefold() if isinstance(value, str) else ""
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFKD", text)
+        if not unicodedata.combining(character)
+    )
 
 
 def filter_participants(
     participants: Sequence[Participant],
     query: str,
 ) -> tuple[Participant, ...]:
-    normalized_query = query.strip().casefold()
+    normalized_query = normalize_search_text(query)
     if not normalized_query:
         return tuple(participants)
     return tuple(
         participant
         for participant in participants
-        if normalized_query in participant.name.casefold()
+        if normalized_query in normalize_search_text(participant.name)
     )
 
 
@@ -42,7 +54,7 @@ def sort_participants(
     """Sort participant objects while retaining their stable source identity."""
 
     accessors = (
-        lambda participant: participant.name.casefold(),
+        lambda participant: normalize_search_text(participant.name),
         lambda participant: participant.age.casefold(),
         lambda participant: participant.phone.casefold(),
         lambda participant: participant.inscription.casefold(),
@@ -190,13 +202,13 @@ def filter_inventory_items(
     items: Sequence[InventoryItem],
     query: str,
 ) -> tuple[InventoryItem, ...]:
-    normalized_query = query.strip().casefold()
+    normalized_query = normalize_search_text(query)
     if not normalized_query:
         return tuple(items)
     return tuple(
         item
         for item in items
-        if normalized_query in item.item.casefold()
+        if normalized_query in normalize_search_text(item.item)
     )
 
 
@@ -327,11 +339,13 @@ def filter_teams(
     teams: Sequence[Team],
     query: str,
 ) -> tuple[Team, ...]:
-    normalized_query = query.strip().casefold()
+    normalized_query = normalize_search_text(query)
     if not normalized_query:
         return tuple(teams)
     return tuple(
-        team for team in teams if normalized_query in team.name.casefold()
+        team
+        for team in teams
+        if normalized_query in normalize_search_text(team.name)
     )
 
 

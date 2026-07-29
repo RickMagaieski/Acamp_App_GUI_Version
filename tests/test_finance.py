@@ -9,7 +9,7 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication
 
 from acamp.models import InventoryItem, Participant
 from acamp.pricing import (
@@ -231,8 +231,8 @@ class FinanceApplicationStateTests(unittest.TestCase):
                 window.inventory_page.table_model.ACTION_COLUMN,
             )
             with patch(
-                "acamp.ui.pages.inventory.QMessageBox.question",
-                return_value=QMessageBox.StandardButton.Yes,
+                "acamp.ui.pages.inventory.confirm_destructive",
+                return_value=True,
             ):
                 window.inventory_page._table_clicked(action)
 

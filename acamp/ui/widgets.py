@@ -1,4 +1,4 @@
-"""Reusable widgets shared by the Phase 1 page shells."""
+"""Reusable widgets shared by the desktop interface."""
 
 from __future__ import annotations
 
@@ -115,15 +115,6 @@ class Card(QFrame):
             self.subtitle_label.setWordWrap(True)
             self.body.addWidget(self.subtitle_label)
 
-    def add_placeholder(self, text: str = "Conteúdo disponível em uma próxima fase.") -> QLabel:
-        label = QLabel(text)
-        label.setObjectName("placeholderText")
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label.setWordWrap(True)
-        self.body.addWidget(label, 1)
-        return label
-
-
 class MetricCard(Card):
     clicked = Signal()
 
@@ -179,6 +170,8 @@ class MetricCard(Card):
         self._clickable = True
         self.setProperty("clickable", True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAccessibleName(tooltip)
         self.setToolTip(tooltip)
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802
@@ -190,6 +183,20 @@ class MetricCard(Card):
             event.accept()
             return
         super().mouseReleaseEvent(event)
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        if (
+            self._clickable
+            and event.key() in {
+                Qt.Key.Key_Enter,
+                Qt.Key.Key_Return,
+                Qt.Key.Key_Space,
+            }
+        ):
+            self.clicked.emit()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
 
 class PageScaffold(QScrollArea):
@@ -204,7 +211,9 @@ class PageScaffold(QScrollArea):
         super().__init__(parent)
         self.setObjectName("pageScroll")
         self.setWidgetResizable(True)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
 
         self.canvas = QWidget()
         self.canvas.setObjectName("pageCanvas")
@@ -217,39 +226,6 @@ class PageScaffold(QScrollArea):
         separator.setObjectName("separator")
         self.content.addWidget(separator)
         self.setWidget(self.canvas)
-
-
-class PlaceholderTable(Card):
-    def __init__(self, columns: list[str], rows: int = 4, parent: QWidget | None = None):
-        super().__init__(parent=parent)
-        self.body.setSpacing(0)
-        header = QHBoxLayout()
-        header.setSpacing(1)
-        for column in columns:
-            label = QLabel(column.upper())
-            label.setObjectName("tableHeader")
-            header.addWidget(label, 1)
-        self.body.addLayout(header)
-
-        for _ in range(rows):
-            row = QFrame()
-            row.setFixedHeight(48)
-            row.setStyleSheet("border-bottom: 1px solid #ebe8df;")
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(10, 0, 10, 0)
-            for _column in columns:
-                marker = QLabel("—")
-                marker.setObjectName("placeholderText")
-                row_layout.addWidget(marker, 1)
-            self.body.addWidget(row)
-
-
-class ChartPlaceholder(QLabel):
-    def __init__(self, text: str = "GRÁFICO", parent: QWidget | None = None):
-        super().__init__(text, parent)
-        self.setObjectName("chartPlaceholder")
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setFixedSize(110, 110)
 
 
 class ReportChartCard(Card):

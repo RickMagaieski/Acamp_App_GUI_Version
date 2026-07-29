@@ -13,11 +13,13 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QSpinBox,
     QTableView,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 from acamp.models import InventoryDraft, TeamDraft, TeamMemberDraft
@@ -31,6 +33,35 @@ from acamp.services import (
     validate_team_member_name,
 )
 from acamp.ui.models import PaymentTableModel
+
+
+def confirm_destructive(
+    parent: QWidget | None,
+    *,
+    title: str,
+    message: str,
+    confirm_text: str,
+) -> bool:
+    """Show one consistently styled, plain-text destructive confirmation."""
+
+    dialog = QMessageBox(parent)
+    dialog.setIcon(QMessageBox.Icon.Warning)
+    dialog.setWindowTitle(title)
+    dialog.setTextFormat(Qt.TextFormat.PlainText)
+    dialog.setText(message)
+    cancel_button = dialog.addButton(
+        "Cancelar",
+        QMessageBox.ButtonRole.RejectRole,
+    )
+    confirm_button = dialog.addButton(
+        confirm_text,
+        QMessageBox.ButtonRole.DestructiveRole,
+    )
+    confirm_button.setObjectName("destructiveButton")
+    dialog.setDefaultButton(cancel_button)
+    dialog.setEscapeButton(cancel_button)
+    dialog.exec()
+    return dialog.clickedButton() is confirm_button
 
 
 class AddInventoryItemDialog(QDialog):
@@ -117,7 +148,7 @@ class AddInventoryItemDialog(QDialog):
 
 
 class PaymentDetailsDialog(QDialog):
-    """Read-only participant payment details for Phase 2C."""
+    """Read-only participant payment details."""
 
     def __init__(
         self,

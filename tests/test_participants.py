@@ -96,6 +96,15 @@ class ParticipantCollectionTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].name, "Pessoa Alfa")
 
+    def test_search_is_accent_insensitive(self):
+        participants = (
+            self._participant("Áurea Fictícia"),
+            self._participant("Outra Pessoa"),
+        )
+        result = filter_participants(participants, "aurea ficticia")
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].name, "Áurea Fictícia")
+
     def test_pagination_is_ten_per_page_and_clamps_page(self):
         participants = tuple(
             self._participant(f"Pessoa {number}") for number in range(21)

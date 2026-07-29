@@ -1,4 +1,4 @@
-"""Read-only repositories used by the standalone GUI."""
+"""GUI repositories with controlled loading and atomic persistence."""
 
 from __future__ import annotations
 

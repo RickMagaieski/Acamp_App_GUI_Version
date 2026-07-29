@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
 from acamp.config import GoogleSheetsConfig
+from acamp.paths import ApplicationPaths
 from acamp.repositories import (
     InventoryRepository,
     ParticipantLoadResult,
@@ -31,28 +31,34 @@ def create_application(
     load_participants: bool = True,
     load_inventory: bool = True,
     load_teams: bool = True,
+    application_paths: ApplicationPaths | None = None,
 ) -> tuple[QApplication, MainWindow]:
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName("ACAMP WBSDAC 2026")
     app.setOrganizationName("WBSDAC")
     app.setStyleSheet(APP_STYLESHEET)
 
-    project_root = Path(__file__).resolve().parent
+    paths = application_paths or ApplicationPaths.from_runtime()
     participant_repository = ParticipantRepository(
-        project_root / "participants.json"
+        paths.participants_file
     )
     participant_state = (
-        ParticipantLoadResult.loading()
+        participant_repository.load()
         if load_participants
         else ParticipantLoadResult.empty()
     )
     inventory_service = InventoryService(
-        InventoryRepository(project_root / "items.json")
+        InventoryRepository(paths.inventory_file)
     )
     team_service = TeamService(
-        TeamRepository(project_root / "teams.json")
+        TeamRepository(paths.teams_file)
     )
-    sheets_gateway = GoogleSheetsGateway(GoogleSheetsConfig(project_root))
+    if load_inventory:
+        inventory_service.load()
+    if load_teams:
+        team_service.load()
+
+    sheets_gateway = GoogleSheetsGateway(GoogleSheetsConfig(paths.root))
     synchronization_service = SynchronizationService(
         sheets_gateway,
         participant_repository,
@@ -69,17 +75,6 @@ def create_application(
         participant_deletion_service,
     )
 
-    def load_local_state() -> None:
-        if load_participants:
-            window.set_participant_result(participant_repository.load())
-        if load_inventory:
-            inventory_service.load()
-            window.refresh_inventory_page()
-        if load_teams:
-            team_service.load()
-            window.refresh_activities_page()
-
-    QTimer.singleShot(0, load_local_state)
     return app, window
 
 

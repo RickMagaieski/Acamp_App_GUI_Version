@@ -1,4 +1,4 @@
-"""Phase 2D2 member, score, and ranking tests with invented data only."""
+"""Team member, score, and ranking tests with invented data only."""
 
 from __future__ import annotations
 
@@ -8,16 +8,16 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication
 
 from acamp.models import Team
 from acamp.repositories import TeamRepository, TeamSaveResult
+from acamp.reporting import rank_teams
 from acamp.services import (
     TeamService,
     validate_score_amount,
     validate_team_member_name,
 )
-from acamp.ui.models import rank_teams
 from acamp.ui.pages.activities import ActivitiesPage
 
 
@@ -272,16 +272,16 @@ class ActivitiesWorkflowTests(unittest.TestCase):
             page._member_table_clicked(page.member_model.index(0, 1))
             original = path.read_text(encoding="utf-8")
             with patch(
-                "acamp.ui.pages.activities.QMessageBox.question",
-                return_value=QMessageBox.StandardButton.No,
+                "acamp.ui.pages.activities.confirm_destructive",
+                return_value=False,
             ):
                 page._remove_selected_member()
             self.assertEqual(path.read_text(encoding="utf-8"), original)
             self.assertEqual(page.member_model.rowCount(), 2)
 
             with patch(
-                "acamp.ui.pages.activities.QMessageBox.question",
-                return_value=QMessageBox.StandardButton.Yes,
+                "acamp.ui.pages.activities.confirm_destructive",
+                return_value=True,
             ):
                 page._remove_selected_member()
             self.assertEqual(page.member_model.rowCount(), 1)
