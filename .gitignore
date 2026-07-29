@@ -21,4 +21,6 @@ htmlcov/
 # Phase 4B packaging outputs must stay out of source control
 build/
 dist/
+release/
 *.spec
+!Acamp_App_GUI.spec

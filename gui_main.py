@@ -39,6 +39,7 @@ def create_application(
     app.setStyleSheet(APP_STYLESHEET)
 
     paths = application_paths or ApplicationPaths.from_runtime()
+    paths.ensure_private_data_directory()
     participant_repository = ParticipantRepository(
         paths.participants_file
     )
@@ -80,16 +81,24 @@ def create_application(
 
 def main() -> int:
     smoke_test = "--smoke-test" in sys.argv
+    paths = ApplicationPaths.from_runtime()
+    load_local_data = not smoke_test or paths.packaged
     app, window = create_application(
-        load_participants=not smoke_test,
-        load_inventory=not smoke_test,
-        load_teams=not smoke_test,
+        load_participants=load_local_data,
+        load_inventory=load_local_data,
+        load_teams=load_local_data,
+        application_paths=paths,
     )
     window.show()
 
-    # A non-interactive startup check used by development verification.
+    # A non-interactive startup/navigation check used by release verification.
     if smoke_test:
-        QTimer.singleShot(250, app.quit)
+        for index in range(window.page_stack.count()):
+            window.navigate_to(index)
+            app.processEvents()
+        window.navigate_to(0)
+        QTimer.singleShot(250, window.close)
+        QTimer.singleShot(500, app.quit)
 
     return app.exec()
 

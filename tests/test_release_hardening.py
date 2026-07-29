@@ -90,6 +90,23 @@ class RuntimePathTests(unittest.TestCase):
                 fake_executable.resolve().parent,
             )
 
+    def test_packaged_application_paths_use_external_user_data(self):
+        fake_executable = Path(tempfile.gettempdir()) / "app" / "acamp.exe"
+        fake_bundle = Path(tempfile.gettempdir()) / "bundle"
+        with (
+            patch.object(sys, "frozen", True, create=True),
+            patch.object(sys, "executable", str(fake_executable)),
+            patch.object(sys, "_MEIPASS", str(fake_bundle), create=True),
+        ):
+            paths = ApplicationPaths.from_runtime()
+
+        self.assertEqual(
+            paths.root,
+            fake_executable.resolve().parent / "user_data",
+        )
+        self.assertEqual(paths.resources_root, fake_bundle.resolve())
+        self.assertTrue(paths.packaged)
+
     def test_all_private_paths_are_centralized_below_runtime_root(self):
         root = Path(tempfile.gettempdir()) / "acamp-runtime"
         paths = ApplicationPaths(root)

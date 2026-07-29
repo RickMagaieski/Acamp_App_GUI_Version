@@ -20,8 +20,8 @@ financeiras e de relatórios centralizadas.
 - Windows com Python 3.11 ou mais recente
 - Dependências listadas em `requirements.txt`
 
-O desenvolvimento e os testes atuais usam Python 3.13. A criação do
-executável do Windows será realizada separadamente na Fase 4B.
+O desenvolvimento e os testes atuais usam Python 3.13. O executável
+portátil do Windows é criado separadamente com PyInstaller.
 
 ## Ambiente de desenvolvimento
 
@@ -80,9 +80,22 @@ Google simulados:
 python -m unittest discover -s tests
 ```
 
-## Estado do projeto
+## Empacotamento para Windows
 
-A Fase 4A cobre testes integrados, correções, limpeza e preparação para
-empacotamento. O projeto ainda é executado por `gui_main.py`; nenhum
-executável é criado nesta fase. O empacotamento para Windows será tratado na
-Fase 4B.
+As dependências de desenvolvimento ficam em `requirements-dev.txt`. Para
+executar os testes e criar a distribuição portátil em modo one-folder:
+
+```powershell
+python -m pip install -r requirements-dev.txt
+& .\scripts\build_windows.ps1
+```
+
+Use `-SkipTests` somente quando os testes já tiverem sido executados na
+mesma revisão. O executável é criado em
+`dist\Acamp_App_GUI\Acamp_App_GUI.exe`, e o arquivo portátil em
+`release\Acamp_App_GUI_Windows.zip`.
+
+Na execução empacotada, dados e credenciais privados são resolvidos apenas
+em `user_data` ao lado do executável. Eles não são copiados do projeto e
+não são incluídos na distribuição. O arquivo `README_RELEASE.txt` contém as
+instruções destinadas ao usuário da versão portátil.
