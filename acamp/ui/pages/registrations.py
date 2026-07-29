@@ -1,8 +1,8 @@
-"""Read-only local participant list for Phase 2A."""
+"""Participant list with coordinated Google/local deletion requests."""
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTableView,
     QVBoxLayout,
@@ -20,12 +21,15 @@ from acamp.ui.models import (
     ParticipantTableModel,
     filter_participants,
     paginate_participants,
+    sort_participants,
 )
 
 from ..widgets import Card, PageScaffold, PrimaryButton
 
 
 class RegistrationsPage(PageScaffold):
+    deletion_requested = Signal(object)
+
     PAGE_SIZE = 10
 
     def __init__(self, load_result: ParticipantLoadResult):
@@ -37,6 +41,10 @@ class RegistrationsPage(PageScaffold):
         self._load_result = load_result
         self._participants = load_result.participants
         self._page_index = 0
+        self._sort_column = 0
+        self._sort_order = Qt.SortOrder.AscendingOrder
+        self._active_participant_operation: str | None = None
+        self._cache_reconciliation_required = False
 
         search_row = QHBoxLayout()
         self.search_field = QLineEdit()
@@ -52,6 +60,18 @@ class RegistrationsPage(PageScaffold):
         self.search_button.clicked.connect(self.search_field.setFocus)
         search_row.addWidget(self.search_button)
         self.content.addLayout(search_row)
+
+        self.operation_label = QLabel()
+        self.operation_label.setObjectName("participantOperationStatus")
+        self.operation_label.setWordWrap(True)
+        self.operation_label.hide()
+        self.content.addWidget(self.operation_label)
+
+        self.cache_warning_label = QLabel()
+        self.cache_warning_label.setObjectName("participantCacheWarning")
+        self.cache_warning_label.setWordWrap(True)
+        self.cache_warning_label.hide()
+        self.content.addWidget(self.cache_warning_label)
 
         table_card = Card()
         table_card.setMinimumHeight(480)
@@ -72,6 +92,7 @@ class RegistrationsPage(PageScaffold):
             QAbstractItemView.EditTrigger.NoEditTriggers
         )
         self.table_view.setShowGrid(False)
+        self.table_view.clicked.connect(self._on_table_clicked)
         self.table_view.verticalHeader().setVisible(False)
         self.table_view.verticalHeader().setDefaultSectionSize(48)
         self.table_view.horizontalHeader().setMinimumHeight(46)
@@ -118,6 +139,15 @@ class RegistrationsPage(PageScaffold):
         self.content.addLayout(footer)
         self.content.addStretch(1)
 
+        self.table_view.horizontalHeader().sortIndicatorChanged.connect(
+            self._on_sort_changed
+        )
+        self.table_view.setSortingEnabled(True)
+        self.table_view.sortByColumn(
+            self._sort_column,
+            self._sort_order,
+        )
+
         can_search = load_result.succeeded and bool(self._participants)
         self.search_field.setEnabled(can_search)
         self.search_button.setEnabled(can_search)
@@ -134,6 +164,59 @@ class RegistrationsPage(PageScaffold):
     def _next_page(self) -> None:
         self._page_index += 1
         self._refresh_view()
+
+    def _on_sort_changed(
+        self,
+        column: int,
+        order: Qt.SortOrder,
+    ) -> None:
+        self._sort_column = column
+        self._sort_order = order
+        self._page_index = 0
+        self._refresh_view()
+
+    def _on_table_clicked(self, index) -> None:
+        if (
+            self._active_participant_operation is not None
+            or not index.isValid()
+            or index.column() != ParticipantTableModel.ACTION_COLUMN
+        ):
+            return
+
+        participant = self.table_model.participant_at(index.row())
+        if participant is None:
+            return
+        if not participant.has_usable_id:
+            self.show_deletion_error(
+                "Esta inscrição não possui um identificador válido e não "
+                "pode ser removida do Google Sheets."
+            )
+            return
+        if self._confirm_deletion(participant.name):
+            self.deletion_requested.emit(participant)
+
+    def _confirm_deletion(self, participant_name: str) -> bool:
+        dialog = QMessageBox(self)
+        dialog.setIcon(QMessageBox.Icon.Question)
+        dialog.setWindowTitle("Remover inscrição")
+        dialog.setTextFormat(Qt.TextFormat.PlainText)
+        dialog.setText(
+            "Tem certeza de que deseja remover a inscrição de "
+            f"{participant_name}?\n\n"
+            "A inscrição será removida do Google Sheets e dos dados locais."
+        )
+        cancel_button = dialog.addButton(
+            "Cancelar",
+            QMessageBox.ButtonRole.RejectRole,
+        )
+        remove_button = dialog.addButton(
+            "Remover",
+            QMessageBox.ButtonRole.DestructiveRole,
+        )
+        remove_button.setObjectName("destructiveButton")
+        dialog.setDefaultButton(cancel_button)
+        dialog.exec()
+        return dialog.clickedButton() is remove_button
 
     def _load_state_message(self) -> str | None:
         messages = {
@@ -158,14 +241,61 @@ class RegistrationsPage(PageScaffold):
         """Apply one application-level load result without reading the file."""
         self._load_result = load_result
         self._participants = load_result.participants
-        self._page_index = 0
-        self.search_field.blockSignals(True)
-        self.search_field.clear()
-        self.search_field.blockSignals(False)
         can_search = load_result.succeeded and bool(self._participants)
         self.search_field.setEnabled(can_search)
         self.search_button.setEnabled(can_search)
         self._refresh_view()
+
+    def set_participant_operation(self, operation: str | None) -> None:
+        self._active_participant_operation = operation
+        self.table_view.setEnabled(
+            operation is None
+            and not self._cache_reconciliation_required
+        )
+        if operation == "deletion":
+            self.operation_label.setText("Removendo inscrição...")
+            self.operation_label.show()
+        elif operation == "synchronization":
+            self.operation_label.setText(
+                "Sincronização em andamento. Aguarde para remover "
+                "inscrições."
+            )
+            self.operation_label.show()
+        else:
+            self.operation_label.hide()
+
+    def show_deletion_success(self, participant_name: str) -> None:
+        QMessageBox.information(
+            self,
+            "Inscrição removida",
+            f"A inscrição de {participant_name} foi removida com sucesso.",
+        )
+
+    def show_deletion_error(self, message: str) -> None:
+        QMessageBox.warning(
+            self,
+            "Não foi possível remover a inscrição",
+            message,
+        )
+
+    def mark_cache_reconciliation_required(self, message: str) -> None:
+        self._cache_reconciliation_required = True
+        self.table_view.setEnabled(False)
+        self.cache_warning_label.setText(message)
+        self.cache_warning_label.show()
+        QMessageBox.warning(
+            self,
+            "Sincronização necessária",
+            message,
+        )
+
+    def clear_cache_reconciliation_warning(self) -> None:
+        self._cache_reconciliation_required = False
+        self.table_view.setEnabled(
+            self._active_participant_operation is None
+        )
+        self.cache_warning_label.clear()
+        self.cache_warning_label.hide()
 
     def _refresh_view(self) -> None:
         total = len(self._participants)
@@ -180,6 +310,11 @@ class RegistrationsPage(PageScaffold):
         filtered = filter_participants(
             self._participants,
             self.search_field.text(),
+        )
+        filtered = sort_participants(
+            filtered,
+            self._sort_column,
+            self._sort_order,
         )
         page = paginate_participants(filtered, self._page_index, self.PAGE_SIZE)
         self._page_index = page.page_index

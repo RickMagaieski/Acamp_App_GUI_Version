@@ -11,9 +11,11 @@ from typing import Any, Mapping
 from .models import (
     InventoryDraft,
     InventoryItem,
+    Participant,
     Team,
     TeamDraft,
     TeamMemberDraft,
+    normalize_participant_id,
 )
 from .repositories import (
     InventoryLoadResult,
@@ -321,6 +323,137 @@ class SynchronizationService:
             loaded_count=downloaded.loaded_count,
             skipped_rows=downloaded.skipped_rows,
             warning_rows=downloaded.warning_rows,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ParticipantDeletionResult:
+    """Outcome across the remote/local non-atomic deletion boundary."""
+
+    succeeded: bool
+    message: str
+    participant_result: ParticipantLoadResult | None = None
+    remote_deleted: bool = False
+    local_saved: bool = False
+    requires_reconciliation: bool = False
+    technical_code: str = ""
+
+    @property
+    def partially_succeeded(self) -> bool:
+        return (
+            self.remote_deleted
+            and not self.local_saved
+            and self.participant_result is not None
+        )
+
+
+class ParticipantDeletionService:
+    """Coordinates one ID-based remote deletion and atomic local save."""
+
+    MISSING_ID_MESSAGE = (
+        "Esta inscrição não possui um identificador válido e não pode ser "
+        "removida do Google Sheets."
+    )
+    LOCAL_STATE_MESSAGE = (
+        "Os dados locais desta inscrição estão desatualizados. "
+        "Sincronize os dados e tente novamente."
+    )
+    PARTIAL_SUCCESS_MESSAGE = (
+        "A inscrição foi removida do Google Sheets, mas os dados locais "
+        "não puderam ser salvos. Sincronize novamente antes de fechar o "
+        "aplicativo."
+    )
+
+    def __init__(
+        self,
+        gateway: GoogleSheetsGateway,
+        participant_repository: ParticipantRepository,
+    ):
+        self._gateway = gateway
+        self._participant_repository = participant_repository
+
+    def delete(
+        self,
+        participant: Participant,
+        current_result: ParticipantLoadResult,
+    ) -> ParticipantDeletionResult:
+        participant_id = normalize_participant_id(
+            participant.participant_id
+        )
+        if not participant_id:
+            return ParticipantDeletionResult(
+                succeeded=False,
+                message=self.MISSING_ID_MESSAGE,
+                technical_code="participant_id_missing",
+            )
+
+        source_index = participant.source_index
+        if (
+            not current_result.succeeded
+            or not 0 <= source_index < len(current_result.records)
+        ):
+            return ParticipantDeletionResult(
+                succeeded=False,
+                message=self.LOCAL_STATE_MESSAGE,
+                technical_code="participant_source_record_unavailable",
+            )
+
+        selected_record = current_result.records[source_index]
+        if (
+            not isinstance(selected_record, Mapping)
+            or normalize_participant_id(selected_record.get("id"))
+            != participant_id
+        ):
+            return ParticipantDeletionResult(
+                succeeded=False,
+                message=self.LOCAL_STATE_MESSAGE,
+                technical_code="participant_source_identity_mismatch",
+            )
+
+        proposed_records = list(current_result.records)
+        del proposed_records[source_index]
+        proposed_result = participant_result_from_records(proposed_records)
+
+        try:
+            self._gateway.delete_participant(participant_id)
+        except SheetsGatewayError as error:
+            return ParticipantDeletionResult(
+                succeeded=False,
+                message=error.user_message,
+                technical_code=error.technical_code,
+            )
+        except Exception:
+            return ParticipantDeletionResult(
+                succeeded=False,
+                message="Não foi possível remover a inscrição.",
+                technical_code="unexpected_deletion_gateway_failure",
+            )
+
+        try:
+            saved = self._participant_repository.save(proposed_records)
+        except Exception:
+            saved_succeeded = False
+            save_technical_code = "unexpected_participant_save_failure"
+        else:
+            saved_succeeded = saved.succeeded
+            save_technical_code = saved.technical_code
+        if not saved_succeeded:
+            return ParticipantDeletionResult(
+                succeeded=False,
+                message=self.PARTIAL_SUCCESS_MESSAGE,
+                participant_result=proposed_result,
+                remote_deleted=True,
+                local_saved=False,
+                requires_reconciliation=True,
+                technical_code=save_technical_code,
+            )
+
+        return ParticipantDeletionResult(
+            succeeded=True,
+            message="A inscrição foi removida com sucesso.",
+            participant_result=proposed_result,
+            remote_deleted=True,
+            local_saved=True,
         )
 
 

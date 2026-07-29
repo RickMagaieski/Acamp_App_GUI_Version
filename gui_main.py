@@ -17,6 +17,7 @@ from acamp.repositories import (
 )
 from acamp.services import (
     InventoryService,
+    ParticipantDeletionService,
     SynchronizationService,
     TeamService,
 )
@@ -51,8 +52,13 @@ def create_application(
     team_service = TeamService(
         TeamRepository(project_root / "teams.json")
     )
+    sheets_gateway = GoogleSheetsGateway(GoogleSheetsConfig(project_root))
     synchronization_service = SynchronizationService(
-        GoogleSheetsGateway(GoogleSheetsConfig(project_root)),
+        sheets_gateway,
+        participant_repository,
+    )
+    participant_deletion_service = ParticipantDeletionService(
+        sheets_gateway,
         participant_repository,
     )
     window = MainWindow(
@@ -60,6 +66,7 @@ def create_application(
         inventory_service,
         team_service,
         synchronization_service,
+        participant_deletion_service,
     )
 
     def load_local_state() -> None:
@@ -81,7 +88,7 @@ def main() -> int:
     app, window = create_application(
         load_participants=not smoke_test,
         load_inventory=not smoke_test,
-        load_teams=True,
+        load_teams=not smoke_test,
     )
     window.show()
 

@@ -18,6 +18,14 @@ def _safe_text(value: Any) -> str:
     return text or "-"
 
 
+def normalize_participant_id(value: Any) -> str:
+    """Return the exact, whitespace-normalized participant identifier."""
+
+    if value is None or isinstance(value, (dict, list, tuple, set)):
+        return ""
+    return str(value).strip()
+
+
 def _safe_age(value: Any) -> str:
     if isinstance(value, bool) or value is None:
         return "-"
@@ -63,9 +71,14 @@ class Participant:
     email: str
     food: str
     participant_id: str
+    source_index: int = -1
 
     @classmethod
-    def from_mapping(cls, record: Mapping[str, Any]) -> "Participant":
+    def from_mapping(
+        cls,
+        record: Mapping[str, Any],
+        source_index: int = -1,
+    ) -> "Participant":
         return cls(
             name=_safe_text(record.get("name")),
             age=_safe_age(record.get("age")),
@@ -78,8 +91,13 @@ class Participant:
             medical=_safe_text(record.get("medical")),
             email=_safe_text(record.get("email")),
             food=_safe_text(record.get("food")),
-            participant_id=_safe_text(record.get("id")),
+            participant_id=normalize_participant_id(record.get("id")),
+            source_index=source_index,
         )
+
+    @property
+    def has_usable_id(self) -> bool:
+        return bool(self.participant_id)
 
 
 def _inventory_quantity(value: Any) -> int | None:

@@ -28,6 +28,7 @@ class ParticipantLoadStatus(str, Enum):
 class ParticipantLoadResult:
     status: ParticipantLoadStatus
     participants: tuple[Participant, ...] = ()
+    records: tuple[Any, ...] = ()
     skipped_records: int = 0
     technical_code: str = ""
 
@@ -56,13 +57,16 @@ class ParticipantSaveResult:
 def participant_result_from_records(
     records: Sequence[Any],
 ) -> ParticipantLoadResult:
+    preserved_records = tuple(records)
     participants: list[Participant] = []
     skipped_records = 0
-    for record in records:
+    for source_index, record in enumerate(preserved_records):
         if not isinstance(record, dict):
             skipped_records += 1
             continue
-        participants.append(Participant.from_mapping(record))
+        participants.append(
+            Participant.from_mapping(record, source_index)
+        )
 
     status = (
         ParticipantLoadStatus.VALID
@@ -72,6 +76,7 @@ def participant_result_from_records(
     return ParticipantLoadResult(
         status=status,
         participants=tuple(participants),
+        records=preserved_records,
         skipped_records=skipped_records,
     )
 

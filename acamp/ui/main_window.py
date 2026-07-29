@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PySide6.QtCore import QThread, Qt
+from PySide6.QtCore import QThread, Signal, Qt
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -18,15 +18,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from acamp.models import Participant
 from acamp.repositories import ParticipantLoadResult
 from acamp.services import (
     FinanceService,
     InventoryService,
+    ParticipantDeletionService,
     ReportingService,
     SynchronizationService,
     TeamService,
 )
-from acamp.workers import ParticipantSynchronizationWorker
+from acamp.workers import (
+    ParticipantDeletionWorker,
+    ParticipantSynchronizationWorker,
+)
 
 from .pages.activities import ActivitiesPage
 from .pages.dashboard import DashboardPage
@@ -38,6 +43,8 @@ from .widgets import SidebarButton
 
 
 class MainWindow(QMainWindow):
+    participant_state_changed = Signal(object)
+
     PAGE_DEFINITIONS = (
         ("⌂", "Dashboard", DashboardPage),
         ("♙", "Inscrições", RegistrationsPage),
@@ -53,6 +60,7 @@ class MainWindow(QMainWindow):
         inventory_service: InventoryService | None = None,
         team_service: TeamService | None = None,
         synchronization_service: SynchronizationService | None = None,
+        participant_deletion_service: ParticipantDeletionService | None = None,
     ):
         super().__init__()
         self.setWindowTitle("ACAMP WBSDAC 2026")
@@ -83,8 +91,14 @@ class MainWindow(QMainWindow):
         inventory_service = inventory_service or InventoryService()
         team_service = team_service or TeamService()
         self._synchronization_service = synchronization_service
+        self._participant_deletion_service = participant_deletion_service
+        self._active_participant_operation: str | None = None
+        self._participant_cache_requires_reconciliation = False
         self._sync_thread: QThread | None = None
         self._sync_worker: ParticipantSynchronizationWorker | None = None
+        self._deletion_thread: QThread | None = None
+        self._deletion_worker: ParticipantDeletionWorker | None = None
+        self._deleting_participant_name = ""
         self.finance_service = FinanceService(
             participant_result,
             inventory_service,
@@ -134,6 +148,10 @@ class MainWindow(QMainWindow):
             self.dashboard_page.navigate_requested.connect(self.navigate_to)
             self.dashboard_page.sync_requested.connect(
                 self._start_participant_sync
+            )
+        if self.registrations_page is not None:
+            self.registrations_page.deletion_requested.connect(
+                self._start_participant_deletion
             )
 
         self.navigation_buttons[0].setChecked(True)
@@ -212,6 +230,7 @@ class MainWindow(QMainWindow):
         if self.registrations_page is not None:
             self.registrations_page.set_load_result(result)
         self._refresh_finance_and_reports()
+        self.participant_state_changed.emit(result)
 
     def refresh_inventory_page(self) -> None:
         if self.inventory_page is not None:
@@ -244,8 +263,24 @@ class MainWindow(QMainWindow):
         self._refresh_reports_page()
         self._refresh_dashboard_page()
 
+    def _set_participant_operation(self, operation: str | None) -> None:
+        """Keep synchronization and deletion controls on one busy state."""
+
+        self._active_participant_operation = operation
+        if self.dashboard_page is not None:
+            self.dashboard_page.set_participant_operation(operation)
+        if self.registrations_page is not None:
+            self.registrations_page.set_participant_operation(operation)
+
+    def _clear_cache_reconciliation(self) -> None:
+        self._participant_cache_requires_reconciliation = False
+        if self.dashboard_page is not None:
+            self.dashboard_page.clear_cache_reconciliation_warning()
+        if self.registrations_page is not None:
+            self.registrations_page.clear_cache_reconciliation_warning()
+
     def _start_participant_sync(self) -> None:
-        if self._sync_thread is not None:
+        if self._active_participant_operation is not None:
             return
         if self.dashboard_page is None:
             return
@@ -305,12 +340,12 @@ class MainWindow(QMainWindow):
 
         self._sync_thread = thread
         self._sync_worker = worker
-        self.dashboard_page.set_sync_busy(True)
+        self._set_participant_operation("synchronization")
         thread.start()
 
     def _participant_sync_progress(self, _message: str) -> None:
-        if self.dashboard_page is not None:
-            self.dashboard_page.set_sync_busy(True)
+        if self._active_participant_operation == "synchronization":
+            self._set_participant_operation("synchronization")
 
     def _participant_sync_succeeded(self, result) -> None:
         if result.participant_result is None:
@@ -319,6 +354,7 @@ class MainWindow(QMainWindow):
             )
             return
         self.set_participant_result(result.participant_result)
+        self._clear_cache_reconciliation()
         if self.dashboard_page is not None:
             self.dashboard_page.show_sync_success(
                 result,
@@ -330,26 +366,158 @@ class MainWindow(QMainWindow):
             self.dashboard_page.show_sync_error(message)
 
     def _participant_sync_finished(self) -> None:
-        if self.dashboard_page is not None:
-            self.dashboard_page.set_sync_busy(False)
+        if self._active_participant_operation == "synchronization":
+            self._set_participant_operation(None)
         self._sync_worker = None
         self._sync_thread = None
 
+    def _start_participant_deletion(
+        self,
+        participant: Participant,
+    ) -> None:
+        if self._active_participant_operation is not None:
+            return
+        if self.registrations_page is None:
+            return
+        if self._participant_cache_requires_reconciliation:
+            self.registrations_page.show_deletion_error(
+                "Sincronize os dados antes de continuar."
+            )
+            return
+        if self._participant_deletion_service is None:
+            self.registrations_page.show_deletion_error(
+                "A remoção de inscrições não está configurada."
+            )
+            return
+        if not participant.has_usable_id:
+            self.registrations_page.show_deletion_error(
+                "Esta inscrição não possui um identificador válido e não "
+                "pode ser removida do Google Sheets."
+            )
+            return
+
+        current_result = self.finance_service.participant_result
+        thread = QThread(self)
+        worker = ParticipantDeletionWorker(
+            self._participant_deletion_service,
+            participant,
+            current_result,
+        )
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.progress.connect(self._participant_deletion_progress)
+        worker.succeeded.connect(self._participant_deletion_succeeded)
+        worker.partially_succeeded.connect(
+            self._participant_deletion_partially_succeeded
+        )
+        worker.failed.connect(self._participant_deletion_failed)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(self._participant_deletion_finished)
+        thread.finished.connect(thread.deleteLater)
+
+        self._deletion_thread = thread
+        self._deletion_worker = worker
+        self._deleting_participant_name = participant.name
+        self._set_participant_operation("deletion")
+        thread.start()
+
+    def _participant_deletion_progress(self, _message: str) -> None:
+        if self._active_participant_operation == "deletion":
+            self._set_participant_operation("deletion")
+
+    def _participant_deletion_succeeded(self, result) -> None:
+        if result.participant_result is None:
+            self._participant_deletion_failed(
+                "O Google Sheets retornou um resultado inválido."
+            )
+            return
+        self.set_participant_result(result.participant_result)
+        self._clear_cache_reconciliation()
+        if self.registrations_page is not None:
+            self.registrations_page.show_deletion_success(
+                self._deleting_participant_name
+            )
+
+    def _participant_deletion_partially_succeeded(self, result) -> None:
+        if result.participant_result is None:
+            self._participant_deletion_failed(
+                "A inscrição foi removida online, mas o estado local não "
+                "pôde ser atualizado."
+            )
+            return
+        self.set_participant_result(result.participant_result)
+        self._participant_cache_requires_reconciliation = True
+        if self.dashboard_page is not None:
+            self.dashboard_page.mark_cache_reconciliation_required(
+                result.message
+            )
+        if self.registrations_page is not None:
+            self.registrations_page.mark_cache_reconciliation_required(
+                result.message
+            )
+
+    def _participant_deletion_failed(self, message: str) -> None:
+        if self.registrations_page is not None:
+            self.registrations_page.show_deletion_error(message)
+
+    def _participant_deletion_finished(self) -> None:
+        if self._active_participant_operation == "deletion":
+            self._set_participant_operation(None)
+        self._deletion_worker = None
+        self._deletion_thread = None
+        self._deleting_participant_name = ""
+
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
-        if (
-            self._sync_thread is not None
-            and self._sync_thread.isRunning()
-        ):
+        operation_running = (
+            self._active_participant_operation is not None
+            and (
+                (
+                    self._sync_thread is not None
+                    and self._sync_thread.isRunning()
+                )
+                or (
+                    self._deletion_thread is not None
+                    and self._deletion_thread.isRunning()
+                )
+            )
+        )
+        if operation_running:
+            operation_name = (
+                "sincronização"
+                if self._active_participant_operation == "synchronization"
+                else "remoção"
+            )
             QMessageBox.information(
                 self,
-                "Sincronização em andamento",
-                "Aguarde a sincronização terminar antes de fechar "
+                "Operação em andamento",
+                f"Aguarde a {operation_name} terminar antes de fechar "
                 "o aplicativo.",
             )
             event.ignore()
             return
+        if self._participant_cache_requires_reconciliation:
+            answer = QMessageBox.question(
+                self,
+                "Sincronização necessária",
+                (
+                    "A inscrição foi removida online, mas o arquivo local "
+                    "ainda precisa ser reconciliado. Sincronize os dados "
+                    "antes de fechar.\n\nDeseja fechar mesmo assim?"
+                ),
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
         super().closeEvent(event)
 
     @property
     def current_page_index(self) -> int:
         return self.page_stack.currentIndex()
+
+    @property
+    def participant_cache_requires_reconciliation(self) -> bool:
+        return self._participant_cache_requires_reconciliation

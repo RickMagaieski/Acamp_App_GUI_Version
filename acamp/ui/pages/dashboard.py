@@ -62,6 +62,7 @@ class DashboardPage(PageScaffold):
         self._last_sync_status_text = (
             "Ainda não sincronizado nesta sessão."
         )
+        self._cache_reconciliation_message = ""
 
         sync_panel = QWidget()
         sync_layout = QVBoxLayout(sync_panel)
@@ -393,6 +394,8 @@ class DashboardPage(PageScaffold):
 
     def _refresh_warning(self, snapshot: ReportSnapshot) -> None:
         messages: list[str] = []
+        if self._cache_reconciliation_message:
+            messages.append(self._cache_reconciliation_message)
         if not snapshot.participants_available:
             messages.append("Dados de participantes indisponíveis.")
         if not snapshot.inventory_available:
@@ -406,18 +409,35 @@ class DashboardPage(PageScaffold):
         self.warning_banner.setText("  •  ".join(messages))
         self.warning_banner.setVisible(bool(messages))
 
+    def set_participant_operation(self, operation: str | None) -> None:
+        self.sync_button.setEnabled(operation is None)
+        if operation == "synchronization":
+            self.sync_button.setText("Sincronizando...")
+            self.sync_status_label.setText("Sincronizando...")
+        elif operation == "deletion":
+            self.sync_button.setText("▣  Sincronizar Google Sheets")
+            self.sync_status_label.setText("Removendo inscrição...")
+        else:
+            self.sync_button.setText("▣  Sincronizar Google Sheets")
+            self.sync_status_label.setText(self._last_sync_status_text)
+
     def set_sync_busy(self, busy: bool) -> None:
-        self.sync_button.setEnabled(not busy)
-        self.sync_button.setText(
-            "Sincronizando..."
-            if busy
-            else "▣  Sincronizar Google Sheets"
+        self.set_participant_operation(
+            "synchronization" if busy else None
         )
-        self.sync_status_label.setText(
-            "Sincronizando..."
-            if busy
-            else self._last_sync_status_text
+
+    def mark_cache_reconciliation_required(self, message: str) -> None:
+        self._cache_reconciliation_message = message
+        self._last_sync_status_text = (
+            "Sincronização necessária antes de fechar o aplicativo."
         )
+        if self.last_snapshot is not None:
+            self._refresh_warning(self.last_snapshot)
+
+    def clear_cache_reconciliation_warning(self) -> None:
+        self._cache_reconciliation_message = ""
+        if self.last_snapshot is not None:
+            self._refresh_warning(self.last_snapshot)
 
     def show_sync_success(
         self,

@@ -1,4 +1,4 @@
-"""Google Sheets authentication, download, and privacy-safe row parsing."""
+"""Google Sheets authentication and privacy-safe participant operations."""
 
 from __future__ import annotations
 
@@ -32,6 +32,14 @@ class SheetParseResult:
     @property
     def loaded_count(self) -> int:
         return len(self.records)
+
+
+@dataclass(frozen=True, slots=True)
+class SheetRowDeletionResult:
+    """Non-sensitive confirmation that exactly one sheet row was deleted."""
+
+    deleted_row_number: int
+    deleted_count: int = 1
 
 
 class SheetsGatewayError(Exception):
@@ -143,12 +151,110 @@ def parse_sheet_values(values: Any) -> SheetParseResult:
 
 
 class GoogleSheetsGateway:
-    """Authenticates and downloads registration rows on explicit request."""
+    """Runs explicit registration operations against the configured sheet."""
 
     def __init__(self, config: GoogleSheetsConfig):
         self._config = config
 
     def download_participants(self) -> SheetParseResult:
+        service = self._create_service()
+        response = self._read_configured_values(service)
+        return parse_sheet_values(response.get("values", []))
+
+    def delete_participant(
+        self,
+        participant_id: str,
+    ) -> SheetRowDeletionResult:
+        """Delete exactly one data row matching the normalized hidden ID."""
+
+        normalized_id = str(participant_id).strip()
+        if not normalized_id:
+            raise SheetsGatewayError(
+                (
+                    "Esta inscrição não possui um identificador válido e "
+                    "não pode ser removida do Google Sheets."
+                ),
+                "participant_id_missing",
+            )
+
+        service = self._create_service()
+        response = self._read_configured_values(service)
+        values = response.get("values", [])
+        if not isinstance(values, list):
+            raise SheetsGatewayError(
+                "A planilha retornou dados em um formato inválido.",
+                "sheet_values_not_list",
+            )
+
+        spreadsheet_row = None
+        for row_number, row in enumerate(values[1:], start=2):
+            if (
+                isinstance(row, (list, tuple))
+                and _cell(row, 13) == normalized_id
+            ):
+                spreadsheet_row = row_number
+                break
+
+        if spreadsheet_row is None:
+            raise SheetsGatewayError(
+                (
+                    "Esta inscrição não foi encontrada no Google Sheets. "
+                    "Sincronize os dados e tente novamente."
+                ),
+                "participant_not_found",
+            )
+
+        sheet_id = self._configured_sheet_id(service)
+        request_body = {
+            "requests": [{
+                "deleteDimension": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "dimension": "ROWS",
+                        "startIndex": spreadsheet_row - 1,
+                        "endIndex": spreadsheet_row,
+                    }
+                }
+            }]
+        }
+        try:
+            response = (
+                service.spreadsheets()
+                .batchUpdate(
+                    spreadsheetId=self._config.spreadsheet_id,
+                    body=request_body,
+                )
+                .execute()
+            )
+        except HttpError as error:
+            raise self._http_error(error, modifying=True) from None
+        except (
+            TransportError,
+            socket.timeout,
+            TimeoutError,
+            ConnectionError,
+            OSError,
+        ):
+            raise SheetsGatewayError(
+                "A conexão com a internet não está disponível.",
+                "sheet_transport_failed",
+            ) from None
+        except SheetsGatewayError:
+            raise
+        except Exception:
+            raise SheetsGatewayError(
+                "Não foi possível remover a inscrição.",
+                "sheet_row_deletion_failed",
+            ) from None
+
+        if not isinstance(response, Mapping):
+            raise SheetsGatewayError(
+                "A planilha retornou dados em um formato inválido.",
+                "sheet_delete_response_not_mapping",
+            )
+        return SheetRowDeletionResult(spreadsheet_row)
+
+    def _create_service(self):
         credentials = self._authenticate()
         try:
             authorized_http = AuthorizedHttp(
@@ -157,12 +263,33 @@ class GoogleSheetsGateway:
                     timeout=self._config.request_timeout_seconds
                 ),
             )
-            service = build(
+            return build(
                 "sheets",
                 "v4",
                 http=authorized_http,
                 cache_discovery=False,
             )
+        except (
+            TransportError,
+            socket.timeout,
+            TimeoutError,
+            ConnectionError,
+            OSError,
+        ):
+            raise SheetsGatewayError(
+                "A conexão com a internet não está disponível.",
+                "sheet_transport_failed",
+            ) from None
+        except SheetsGatewayError:
+            raise
+        except Exception:
+            raise SheetsGatewayError(
+                "Não foi possível conectar ao Google Sheets.",
+                "sheet_service_creation_failed",
+            ) from None
+
+    def _read_configured_values(self, service) -> Mapping[str, Any]:
+        try:
             response = (
                 service.spreadsheets()
                 .values()
@@ -198,7 +325,79 @@ class GoogleSheetsGateway:
                 "A planilha retornou dados em um formato inválido.",
                 "sheet_response_not_mapping",
             )
-        return parse_sheet_values(response.get("values", []))
+        return response
+
+    def _configured_sheet_id(self, service) -> int:
+        sheet_title = self._configured_sheet_title()
+        try:
+            response = (
+                service.spreadsheets()
+                .get(
+                    spreadsheetId=self._config.spreadsheet_id,
+                    fields="sheets.properties(sheetId,title)",
+                )
+                .execute()
+            )
+        except HttpError as error:
+            raise self._http_error(error, modifying=True) from None
+        except (
+            TransportError,
+            socket.timeout,
+            TimeoutError,
+            ConnectionError,
+            OSError,
+        ):
+            raise SheetsGatewayError(
+                "A conexão com a internet não está disponível.",
+                "sheet_transport_failed",
+            ) from None
+        except SheetsGatewayError:
+            raise
+        except Exception:
+            raise SheetsGatewayError(
+                "Não foi possível acessar a página configurada.",
+                "sheet_metadata_request_failed",
+            ) from None
+
+        if not isinstance(response, Mapping):
+            raise SheetsGatewayError(
+                "A planilha retornou dados em um formato inválido.",
+                "sheet_metadata_not_mapping",
+            )
+        sheets = response.get("sheets")
+        if not isinstance(sheets, list):
+            raise SheetsGatewayError(
+                "A planilha retornou dados em um formato inválido.",
+                "sheet_metadata_sheets_not_list",
+            )
+        for sheet in sheets:
+            if not isinstance(sheet, Mapping):
+                continue
+            properties = sheet.get("properties")
+            if not isinstance(properties, Mapping):
+                continue
+            sheet_id = properties.get("sheetId")
+            if (
+                properties.get("title") == sheet_title
+                and isinstance(sheet_id, int)
+                and not isinstance(sheet_id, bool)
+            ):
+                return sheet_id
+        raise SheetsGatewayError(
+            "A página configurada não foi encontrada na planilha.",
+            "sheet_tab_not_found",
+        )
+
+    def _configured_sheet_title(self) -> str:
+        title = self._config.sheet_range.split("!", 1)[0].strip()
+        if len(title) >= 2 and title.startswith("'") and title.endswith("'"):
+            title = title[1:-1].replace("''", "'")
+        if not title:
+            raise SheetsGatewayError(
+                "A página configurada é inválida.",
+                "sheet_tab_name_invalid",
+            )
+        return title
 
     def _authenticate(self):
         credentials = None
@@ -305,9 +504,18 @@ class GoogleSheetsGateway:
             ) from None
 
     @staticmethod
-    def _http_error(error: HttpError) -> SheetsGatewayError:
+    def _http_error(
+        error: HttpError,
+        *,
+        modifying: bool = False,
+    ) -> SheetsGatewayError:
         status = getattr(error.resp, "status", None)
         if status == 403:
+            if modifying:
+                return SheetsGatewayError(
+                    "Você não possui permissão para alterar esta planilha.",
+                    "sheet_write_permission_denied",
+                )
             return SheetsGatewayError(
                 "Você não possui acesso à planilha configurada.",
                 "sheet_permission_denied",

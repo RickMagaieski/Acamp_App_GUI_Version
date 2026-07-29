@@ -34,6 +34,31 @@ def filter_participants(
     )
 
 
+def sort_participants(
+    participants: Sequence[Participant],
+    column: int,
+    order: Qt.SortOrder,
+) -> tuple[Participant, ...]:
+    """Sort participant objects while retaining their stable source identity."""
+
+    accessors = (
+        lambda participant: participant.name.casefold(),
+        lambda participant: participant.age.casefold(),
+        lambda participant: participant.phone.casefold(),
+        lambda participant: participant.inscription.casefold(),
+        lambda participant: participant.payment.casefold(),
+        lambda participant: participant.accommodation.casefold(),
+        lambda participant: participant.transportation.casefold(),
+    )
+    if not 0 <= column < len(accessors):
+        return tuple(participants)
+    return tuple(sorted(
+        participants,
+        key=accessors[column],
+        reverse=order == Qt.SortOrder.DescendingOrder,
+    ))
+
+
 @dataclass(frozen=True, slots=True)
 class PageSlice:
     items: tuple[Participant, ...]
@@ -74,7 +99,9 @@ class ParticipantTableModel(QAbstractTableModel):
         "Pagamento",
         "Acomodação",
         "Transporte",
+        "Ações",
     )
+    ACTION_COLUMN = 7
 
     def __init__(self, participants: Sequence[Participant] = (), parent=None):
         super().__init__(parent)
@@ -99,6 +126,7 @@ class ParticipantTableModel(QAbstractTableModel):
             participant.payment,
             participant.accommodation,
             participant.transportation,
+            "Excluir" if participant.has_usable_id else "Indisponível",
         )
 
         if role == Qt.ItemDataRole.DisplayRole:
@@ -107,6 +135,23 @@ class ParticipantTableModel(QAbstractTableModel):
             if index.column() == 0:
                 return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
             return Qt.AlignmentFlag.AlignCenter
+        if (
+            role == Qt.ItemDataRole.ForegroundRole
+            and index.column() == self.ACTION_COLUMN
+        ):
+            return QColor(
+                "#d55a17" if participant.has_usable_id else "#92988c"
+            )
+        if (
+            role == Qt.ItemDataRole.ToolTipRole
+            and index.column() == self.ACTION_COLUMN
+        ):
+            if participant.has_usable_id:
+                return "Remover inscrição"
+            return (
+                "Esta inscrição não possui um identificador válido no "
+                "Google Sheets."
+            )
         return None
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):  # noqa: N802
@@ -118,10 +163,27 @@ class ParticipantTableModel(QAbstractTableModel):
             return self.HEADERS[section]
         return None
 
+    def flags(self, index: QModelIndex):
+        flags = super().flags(index)
+        participant = self.participant_at(index.row())
+        if (
+            index.isValid()
+            and index.column() == self.ACTION_COLUMN
+            and participant is not None
+            and not participant.has_usable_id
+        ):
+            return flags & ~Qt.ItemFlag.ItemIsEnabled
+        return flags
+
     def set_participants(self, participants: Sequence[Participant]) -> None:
         self.beginResetModel()
         self._participants = tuple(participants)
         self.endResetModel()
+
+    def participant_at(self, row: int) -> Participant | None:
+        if 0 <= row < len(self._participants):
+            return self._participants[row]
+        return None
 
 
 def filter_inventory_items(

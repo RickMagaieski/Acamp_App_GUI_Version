@@ -176,6 +176,19 @@ QPushButton#primaryButton:disabled {{
     color: #f0f0ec;
 }}
 
+QPushButton#destructiveButton {{
+    background: #c94f1b;
+    border: none;
+    border-radius: 7px;
+    color: white;
+    font-weight: 700;
+    padding: 7px 18px;
+}}
+
+QPushButton#destructiveButton:hover {{
+    background: #ad3f12;
+}}
+
 QLineEdit#placeholderSearch {{
     background: {CARD};
     border: 1px solid {BORDER};
@@ -276,6 +289,26 @@ QLabel#participantState {{
     color: {MUTED};
     font-size: 15px;
     padding: 30px;
+}}
+
+QLabel#participantOperationStatus {{
+    background: #eef2e8;
+    border: 1px solid #bdc9ac;
+    border-radius: 9px;
+    color: {DARK_GREEN};
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 13px;
+}}
+
+QLabel#participantCacheWarning {{
+    background: #fff0e9;
+    border: 1px solid #e8a17e;
+    border-radius: 9px;
+    color: #8d3514;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 13px;
 }}
 
 QLabel#inventoryState {{
