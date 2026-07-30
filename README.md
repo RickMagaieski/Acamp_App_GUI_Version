@@ -1,31 +1,31 @@
 # ACAMP WBSDAC Desktop
 
-Aplicação desktop em PySide6 para administrar inscrições, inventário,
-finanças, equipes, atividades, relatórios e indicadores do acampamento.
-A interface compartilha um único estado entre as páginas e mantém as regras
-financeiras e de relatórios centralizadas.
+A PySide6 desktop application for managing camp registrations, inventory,
+finances, teams, activities, reports, and indicators. The interface shares a
+single state across all pages and keeps financial and reporting rules
+centralized.
 
-## Recursos principais
+## Main Features
 
-- Dashboard com indicadores e atalhos de navegação
-- Consulta, pesquisa, paginação e remoção segura de inscrições
-- Cadastro e remoção de itens do inventário
-- Resumo financeiro e classificação de pagamentos
-- Gerenciamento de equipes, participantes e pontuação
-- Relatórios agregados e gráficos redimensionáveis
-- Sincronização manual de inscrições com Google Sheets
+* Dashboard with indicators and navigation shortcuts
+* Registration viewing, searching, pagination, and safe removal
+* Inventory item registration and removal
+* Financial summary and payment classification
+* Team, participant, and score management
+* Aggregated reports and resizable charts
+* Manual registration synchronization with Google Sheets
 
-## Requisitos
+## Requirements
 
-- Windows com Python 3.11 ou mais recente
-- Dependências listadas em `requirements.txt`
+* Windows with Python 3.11 or newer
+* Dependencies listed in `requirements.txt`
 
-O desenvolvimento e os testes atuais usam Python 3.13. O executável
-portátil do Windows é criado separadamente com PyInstaller.
+Current development and testing use Python 3.13. The portable Windows
+executable is built separately using PyInstaller.
 
-## Ambiente de desenvolvimento
+## Development Environment
 
-No PowerShell, a partir da pasta do projeto:
+In PowerShell, from the project folder:
 
 ```powershell
 py -m venv .venv
@@ -33,33 +33,33 @@ py -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-Para iniciar a interface:
+To launch the interface:
 
 ```powershell
 python gui_main.py
 ```
 
-O diretório atual do terminal não é usado para localizar os dados. Durante
-o desenvolvimento, os arquivos locais são resolvidos a partir da pasta da
-aplicação.
+The terminal’s current working directory is not used to locate data files.
+During development, local files are resolved relative to the application
+folder.
 
-## Arquivos locais privados
+## Private Local Files
 
-Os arquivos abaixo devem permanecer na pasta da aplicação e nunca devem ser
-adicionados ao Git:
+The following files must remain in the application folder and must never be
+added to Git:
 
-- `participants.json`
-- `items.json`
-- `teams.json`
-- `client_secret.json`
-- `token.json`
+* `participants.json`
+* `items.json`
+* `teams.json`
+* `client_secret.json`
+* `token.json`
 
-Os três arquivos JSON armazenam os dados locais. `client_secret.json`
-contém a configuração OAuth fornecida para o aplicativo, e `token.json` é
-criado ou atualizado após uma autorização bem-sucedida.
+The three JSON files store local data. `client_secret.json` contains the OAuth
+configuration provided for the application, while `token.json` is created or
+updated after successful authorization.
 
-Não copie dados reais, credenciais ou tokens para testes, código-fonte,
-documentação, relatórios, capturas de tela ou pacotes distribuídos.
+Do not copy real data, credentials, or tokens into tests, source code,
+documentation, reports, screenshots, or distributed packages.
 
 Na execução empacotada, um assistente é aberto quando a localização dos
 dados ainda não foi configurada ou quando falta algum dos três arquivos
@@ -70,41 +70,49 @@ quando aplicável, o caminho da pasta.
 
 ## Google Sheets
 
-A sincronização é sempre iniciada manualmente pelo botão do Dashboard.
-Nenhuma conexão, autenticação ou abertura de navegador ocorre
-automaticamente na inicialização.
+Synchronization is always started manually using the Dashboard button.
+No connection, authentication, or browser launch occurs automatically during
+application startup.
 
-Na primeira sincronização autorizada, o navegador pode ser aberto para o
-fluxo OAuth do Google. Falhas de conexão ou autenticação preservam o estado
-local existente.
+During the first authorized synchronization, the browser may open for the
+Google OAuth flow. Connection or authentication failures preserve the existing
+local state.
 
-## Testes
+## Tests
 
-Os testes usam apenas registros inventados, diretórios temporários e serviços
-Google simulados:
+The tests use only fictional records, temporary directories, and mocked Google
+services:
 
 ```powershell
 python -m unittest discover -s tests
 ```
 
-## Empacotamento para Windows
+## Windows Packaging
 
-As dependências de desenvolvimento ficam em `requirements-dev.txt`. Para
-executar os testes e criar a distribuição portátil em modo one-folder:
+Development dependencies are listed in `requirements-dev.txt`. To run the
+tests and create the portable one-folder distribution:
 
 ```powershell
 python -m pip install -r requirements-dev.txt
 & .\scripts\build_windows.ps1
 ```
 
-Use `-SkipTests` somente quando os testes já tiverem sido executados na
-mesma revisão. O executável é criado em
-`dist\Acamp_App_GUI\Acamp_App_GUI.exe`, e o arquivo portátil em
+Use `-SkipTests` only when the tests have already been run on the same revision.
+The executable is created at
+`dist\Acamp_App_GUI\Acamp_App_GUI.exe`, and the portable archive is created at
 `release\Acamp_App_GUI_Windows.zip`.
 
+<<<<<<< HEAD
 Na execução empacotada, dados e credenciais privados permanecem externos.
 O assistente pode usar diretamente uma pasta escolhida ou copiar somente
 os arquivos selecionados pelo usuário para `user_data`. Nenhum arquivo
 privado é copiado automaticamente do projeto ou incluído na distribuição.
 O arquivo `README_RELEASE.txt` contém as instruções destinadas ao usuário
 da versão portátil.
+=======
+In the packaged application, private data and credentials are resolved only
+from the `user_data` folder located next to the executable. They are not copied
+from the project and are not included in the distribution. The
+`README_RELEASE.txt` file contains instructions for users of the portable
+version.
+>>>>>>> cd56f5de3fd50f82a81e0a57a1bb5e0013a4a6f4
