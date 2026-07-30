@@ -18,7 +18,7 @@ from acamp.services import InventoryOperationResult, InventoryService
 from acamp.ui.dialogs import AddInventoryItemDialog, confirm_destructive
 from acamp.ui.models import InventoryTableModel, filter_inventory_items
 
-from ..widgets import Card, PageScaffold, PrimaryButton
+from ..widgets import CampLandscape, Card, PageScaffold, PrimaryButton
 
 
 class InventoryPage(PageScaffold):
@@ -28,7 +28,7 @@ class InventoryPage(PageScaffold):
         super().__init__(
             "INVENTÁRIO",
             "Gerencie os itens do acampamento e mantenha o controle do inventário.",
-            "◇",
+            "inventory",
         )
         self._service = service
 
@@ -39,10 +39,12 @@ class InventoryPage(PageScaffold):
         self.search_field.setClearButtonEnabled(True)
         self.search_field.setAccessibleName("Pesquisar itens por nome")
         self.search_field.textChanged.connect(self._refresh_table)
+        self.search_field.setMaximumWidth(520)
         actions.addWidget(self.search_field, 1)
         actions.addStretch(1)
 
-        self.add_button = PrimaryButton("＋  Adicionar Item")
+        self.add_button = PrimaryButton("＋  Adicionar item")
+        self.add_button.setObjectName("orangeButton")
         self.add_button.clicked.connect(self._open_add_dialog)
         actions.addWidget(self.add_button)
         self.content.addLayout(actions)
@@ -54,7 +56,7 @@ class InventoryPage(PageScaffold):
         self.content.addWidget(self.error_banner)
 
         table_card = Card()
-        table_card.setMinimumHeight(430)
+        table_card.setFixedHeight(480)
         table_card.body.setContentsMargins(0, 0, 0, 0)
 
         self.table_model = InventoryTableModel(parent=self)
@@ -95,8 +97,12 @@ class InventoryPage(PageScaffold):
 
         self.total_label = QLabel()
         self.total_label.setObjectName("inventoryTotal")
-        self.content.addWidget(self.total_label)
-        self.content.addStretch(1)
+        self.content.addWidget(
+            self.total_label,
+            0,
+            Qt.AlignmentFlag.AlignLeft,
+        )
+        self.content.addWidget(CampLandscape())
         self.refresh_from_service()
 
     def refresh_from_service(self) -> None:
@@ -124,7 +130,7 @@ class InventoryPage(PageScaffold):
     def _refresh_table(self) -> None:
         total = len(self._service.items)
         noun = "item" if total == 1 else "itens"
-        self.total_label.setText(f"Total de itens: {total} {noun}")
+        self.total_label.setText(f"●  Total de itens: {total} {noun}")
 
         state_message = self._state_message()
         if state_message is not None:

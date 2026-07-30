@@ -29,23 +29,6 @@ from ..widgets import (
     PrimaryButton,
 )
 
-
-def _summary_row(label: str) -> tuple[QWidget, QLabel]:
-    row = QWidget()
-    row.setObjectName("dashboardSummaryRow")
-    layout = QHBoxLayout(row)
-    layout.setContentsMargins(0, 7, 0, 7)
-    layout.setSpacing(12)
-    name_label = QLabel(label)
-    name_label.setObjectName("dashboardSummaryLabel")
-    value_label = QLabel("—")
-    value_label.setObjectName("dashboardSummaryValue")
-    value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-    layout.addWidget(name_label, 1)
-    layout.addWidget(value_label)
-    return row, value_label
-
-
 class DashboardPage(PageScaffold):
     navigate_requested = Signal(int)
     sync_requested = Signal()
@@ -68,7 +51,8 @@ class DashboardPage(PageScaffold):
         sync_layout = QVBoxLayout(sync_panel)
         sync_layout.setContentsMargins(0, 0, 0, 0)
         sync_layout.setSpacing(5)
-        self.sync_button = PrimaryButton("▣  Sincronizar Google Sheets")
+        self.sync_button = PrimaryButton("Atualizar Dados")
+        self.sync_button.setObjectName("syncButton")
         self.sync_button.setToolTip(
             "Baixar manualmente as inscrições da planilha configurada."
         )
@@ -83,7 +67,7 @@ class DashboardPage(PageScaffold):
         super().__init__(
             "Dashboard (Visão Geral)",
             "Acompanhe os principais indicadores do acampamento.",
-            "⌁",
+            "dashboard",
             sync_panel,
         )
         self.sync_button.clicked.connect(self.sync_requested.emit)
@@ -102,42 +86,42 @@ class DashboardPage(PageScaffold):
             (
                 "participants",
                 "TOTAL DE INSCRITOS",
-                "#64784a",
-                "♙",
+                "#5f7448",
+                "registrations",
                 self.REGISTRATIONS_PAGE,
                 "Abrir Inscrições",
             ),
             (
-                "paid",
-                "PAGAMENTOS COMPLETOS",
-                "#4f6f39",
-                "✓",
+                "entries",
+                "ENTRADAS",
+                "#58753f",
+                "finance",
+                self.FINANCE_PAGE,
+                "Abrir Finanças",
+            ),
+            (
+                "expenses",
+                "GASTOS",
+                "#cf511c",
+                "expenses",
                 self.FINANCE_PAGE,
                 "Abrir Finanças",
             ),
             (
                 "pending",
                 "PAGAMENTOS PENDENTES",
-                "#de921e",
-                "!",
+                "#dc941d",
+                "warning",
                 self.FINANCE_PAGE,
                 "Abrir Finanças",
             ),
             (
-                "inventory",
-                "ITENS NO INVENTÁRIO",
-                "#4d758a",
-                "◇",
-                self.INVENTORY_PAGE,
-                "Abrir Inventário",
-            ),
-            (
-                "teams",
-                "EQUIPES CADASTRADAS",
-                "#315b40",
-                "♜",
-                self.ACTIVITIES_PAGE,
-                "Abrir Atividades",
+                "transportation",
+                "PRECISAM DE TRANSPORTE",
+                "#4d7187",
+                "transportation",
+                self.REPORTS_PAGE,
+                "Abrir Relatórios",
             ),
         )
         for column, (
@@ -158,16 +142,8 @@ class DashboardPage(PageScaffold):
             metrics.setColumnStretch(column, 1)
         self.content.addLayout(metrics)
 
-        summaries = QGridLayout()
-        summaries.setHorizontalSpacing(14)
-        summaries.setVerticalSpacing(14)
-        for column in range(3):
-            summaries.setColumnStretch(column, 1)
-
-        financial = Card(
-            "RESUMO FINANCEIRO",
-            "Valores compartilhados com Finanças e Relatórios.",
-        )
+        # Compatibility state retained for existing integrations and tests;
+        # the reference layout intentionally does not render these old cards.
         self.financial_labels: dict[str, QLabel] = {}
         for key, label in (
             ("entries", "Entradas"),
@@ -175,55 +151,75 @@ class DashboardPage(PageScaffold):
             ("result", "Resultado do evento"),
             ("available", "Saldo disponível"),
         ):
-            row, value_label = _summary_row(label)
+            value_label = QLabel("—", self.canvas)
+            value_label.hide()
             self.financial_labels[key] = value_label
-            financial.body.addWidget(row)
-        summaries.addWidget(financial, 0, 0)
-
-        quick = Card("INFORMAÇÕES RÁPIDAS")
         self.quick_labels: dict[str, QLabel] = {}
         for key, label in (
             ("transportation", "Precisam de transporte"),
             ("partial", "Pagamentos parciais"),
             ("inventory_units", "Unidades no inventário"),
         ):
-            row, value_label = _summary_row(label)
+            value_label = QLabel("—", self.canvas)
+            value_label.hide()
             self.quick_labels[key] = value_label
-            quick.body.addWidget(row)
-        self.reports_button = PrimaryButton("Ver Relatórios  →")
+        self.reports_button = PrimaryButton("Ver Relatórios", self.canvas)
+        self.reports_button.hide()
         self.reports_button.clicked.connect(
             lambda: self.navigate_requested.emit(self.REPORTS_PAGE)
         )
-        quick.body.addWidget(self.reports_button)
-        summaries.addWidget(quick, 0, 1)
-
-        teams = Card("DESTAQUE DAS EQUIPES")
-        self.team_leader_label = QLabel("—")
+        self.team_leader_label = QLabel("—", self.canvas)
         self.team_leader_label.setObjectName("dashboardTeamLeader")
         self.team_leader_label.setWordWrap(True)
-        self.team_score_label = QLabel("Pontuação: —")
+        self.team_leader_label.hide()
+        self.team_score_label = QLabel("Pontuação: —", self.canvas)
         self.team_score_label.setObjectName("dashboardTeamScore")
-        self.team_members_label = QLabel("Participantes nos times: —")
+        self.team_score_label.hide()
+        self.team_members_label = QLabel(
+            "Participantes nos times: —",
+            self.canvas,
+        )
         self.team_members_label.setObjectName("cardSubtitle")
-        self.ranking_preview = QLabel()
+        self.team_members_label.hide()
+        self.ranking_preview = QLabel(self.canvas)
         self.ranking_preview.setObjectName("dashboardRankingPreview")
         self.ranking_preview.setWordWrap(True)
-        teams.body.addWidget(self.team_leader_label)
-        teams.body.addWidget(self.team_score_label)
-        teams.body.addWidget(self.team_members_label)
-        teams.body.addWidget(self.ranking_preview, 1)
-        self.activities_button = PrimaryButton("Ver Atividades  →")
+        self.ranking_preview.hide()
+        self.activities_button = PrimaryButton("Ver Atividades", self.canvas)
+        self.activities_button.hide()
         self.activities_button.clicked.connect(
             lambda: self.navigate_requested.emit(self.ACTIVITIES_PAGE)
         )
-        teams.body.addWidget(self.activities_button)
-        summaries.addWidget(teams, 0, 2)
-        self.content.addLayout(summaries)
+
+        for key, title, destination in (
+            ("paid", "PAGAMENTOS COMPLETOS", self.FINANCE_PAGE),
+            ("inventory", "ITENS NO INVENTÁRIO", self.INVENTORY_PAGE),
+            ("teams", "EQUIPES CADASTRADAS", self.ACTIVITIES_PAGE),
+        ):
+            compatibility_card = MetricCard(
+                title,
+                parent=self.canvas,
+            )
+            compatibility_card.hide()
+            compatibility_card.set_clickable("")
+            compatibility_card.clicked.connect(
+                lambda page=destination: self.navigate_requested.emit(page)
+            )
+            self.metric_cards[key] = compatibility_card
 
         welcome = Card()
-        welcome.setMinimumHeight(210)
+        welcome.setObjectName("heroCard")
+        welcome.setMinimumHeight(235)
         welcome_layout = QHBoxLayout()
+        welcome_layout.setContentsMargins(6, 2, 0, 0)
+        welcome_layout.setSpacing(20)
         welcome_text = QVBoxLayout()
+        welcome_text.setSpacing(10)
+        heart = QLabel()
+        heart.setObjectName("welcomeIcon")
+        heart.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        heart.setFixedSize(54, 54)
+        heart.setText("♡")
         title = QLabel("Que bom te ver por aqui!")
         title.setObjectName("dashboardWelcomeTitle")
         message = QLabel(
@@ -231,14 +227,17 @@ class DashboardPage(PageScaffold):
         )
         message.setObjectName("cardSubtitle")
         message.setWordWrap(True)
+        welcome_text.addWidget(heart, 0, Qt.AlignmentFlag.AlignLeft)
         welcome_text.addWidget(title)
         welcome_text.addWidget(message)
         welcome_text.addStretch(1)
         welcome_layout.addLayout(welcome_text, 2)
-        welcome_layout.addWidget(CampLandscape(), 3)
+        hero_landscape = CampLandscape()
+        hero_landscape.setFixedHeight(178)
+        welcome_layout.addWidget(hero_landscape, 3)
         welcome.body.addLayout(welcome_layout)
         self.content.addWidget(welcome)
-        self.content.addStretch(1)
+        self.content.addWidget(CampLandscape())
         self.refresh_from_service()
 
     def refresh_from_service(self) -> None:
@@ -259,26 +258,24 @@ class DashboardPage(PageScaffold):
             self.metric_cards["pending"].set_value(
                 str(snapshot.pending_count)
             )
-            if snapshot.participant_total:
-                self.metric_cards["participants"].set_details(
-                    "Abrir Inscrições"
-                )
-                self.metric_cards["paid"].set_details("Classificação: Pago")
-                self.metric_cards["pending"].set_details(
-                    f"Parciais: {snapshot.partial_count}"
-                )
-            else:
-                self.metric_cards["participants"].set_details(
-                    "Nenhum participante cadastrado"
-                )
-                self.metric_cards["paid"].set_details(
-                    "Não há pagamentos para resumir."
-                )
-                self.metric_cards["pending"].set_details(
-                    "Não há pagamentos para resumir."
-                )
+            self.metric_cards["entries"].set_value(
+                format_currency(snapshot.financial.entries)
+            )
+            self.metric_cards["transportation"].set_value(
+                str(snapshot.transportation_help_count)
+            )
+            self.metric_cards["participants"].set_details("Abrir Inscrições")
+            self.metric_cards["pending"].set_details(
+                f"Parciais: {snapshot.partial_count}"
+            )
         else:
-            for key in ("participants", "paid", "pending"):
+            for key in (
+                "participants",
+                "paid",
+                "pending",
+                "entries",
+                "transportation",
+            ):
                 self.metric_cards[key].set_value("—")
             self.metric_cards["participants"].set_details(
                 "Dados de participantes indisponíveis."
@@ -291,6 +288,9 @@ class DashboardPage(PageScaffold):
             )
 
         if snapshot.inventory_available:
+            self.metric_cards["expenses"].set_value(
+                format_currency(snapshot.financial.expenses)
+            )
             self.metric_cards["inventory"].set_value(
                 str(snapshot.inventory_item_count)
             )
@@ -301,6 +301,7 @@ class DashboardPage(PageScaffold):
             )
             self.metric_cards["inventory"].set_details(inventory_details)
         else:
+            self.metric_cards["expenses"].set_value("—")
             self.metric_cards["inventory"].set_value("—")
             self.metric_cards["inventory"].set_details(
                 "Dados do inventário indisponíveis."
@@ -415,10 +416,10 @@ class DashboardPage(PageScaffold):
             self.sync_button.setText("Sincronizando...")
             self.sync_status_label.setText("Sincronizando...")
         elif operation == "deletion":
-            self.sync_button.setText("▣  Sincronizar Google Sheets")
+            self.sync_button.setText("Atualizar Dados")
             self.sync_status_label.setText("Removendo inscrição...")
         else:
-            self.sync_button.setText("▣  Sincronizar Google Sheets")
+            self.sync_button.setText("Atualizar Dados")
             self.sync_status_label.setText(self._last_sync_status_text)
 
     def set_sync_busy(self, busy: bool) -> None:

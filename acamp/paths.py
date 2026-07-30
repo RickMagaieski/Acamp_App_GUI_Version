@@ -6,6 +6,11 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from .runtime_data import (
+    RuntimeDataConfigStore,
+    missing_required_files,
+)
+
 
 def application_root() -> Path:
     """Return the source root or the directory containing the executable."""
@@ -31,6 +36,9 @@ class ApplicationPaths:
     root: Path
     resources_root: Path | None = None
     packaged: bool = False
+    managed_root: Path | None = None
+    data_mode: str = "source"
+    configuration_valid: bool = True
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "root", Path(self.root).resolve())
@@ -40,15 +48,34 @@ class ApplicationPaths:
             "resources_root",
             Path(resource_root).resolve(),
         )
+        managed_root = self.managed_root or self.root
+        object.__setattr__(
+            self,
+            "managed_root",
+            Path(managed_root).resolve(),
+        )
 
     @classmethod
     def from_runtime(cls) -> "ApplicationPaths":
         root = application_root()
         if getattr(sys, "frozen", False):
+            managed_root = (root / "user_data").resolve()
+            selection = RuntimeDataConfigStore(managed_root).load()
+            if selection is None:
+                data_root = managed_root
+                mode = "unconfigured"
+                configuration_valid = False
+            else:
+                data_root = selection.root
+                mode = selection.mode
+                configuration_valid = True
             return cls(
-                root / "user_data",
+                data_root,
                 resources_root=bundled_resource_root(),
                 packaged=True,
+                managed_root=managed_root,
+                data_mode=mode,
+                configuration_valid=configuration_valid,
             )
         return cls(root, resources_root=bundled_resource_root())
 
@@ -58,10 +85,28 @@ class ApplicationPaths:
         if not self.packaged:
             return True
         try:
-            self.root.mkdir(parents=True, exist_ok=True)
+            self.managed_root.mkdir(parents=True, exist_ok=True)
         except OSError:
             return False
         return True
+
+    @property
+    def data_config_store(self) -> RuntimeDataConfigStore:
+        return RuntimeDataConfigStore(self.managed_root)
+
+    @property
+    def missing_required_data_files(self) -> tuple[str, ...]:
+        return missing_required_files(self.root)
+
+    @property
+    def needs_data_setup(self) -> bool:
+        return (
+            self.packaged
+            and (
+                not self.configuration_valid
+                or bool(self.missing_required_data_files)
+            )
+        )
 
     @property
     def participants_file(self) -> Path:

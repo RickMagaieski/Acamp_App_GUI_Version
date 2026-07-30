@@ -23,7 +23,27 @@ from acamp.services import (
 )
 from acamp.sheets_gateway import GoogleSheetsGateway
 from acamp.ui.main_window import MainWindow
+from acamp.ui.setup_dialog import RuntimeDataSetupDialog
 from acamp.ui.theme import APP_STYLESHEET
+
+
+def initialize_qt_application() -> QApplication:
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.setApplicationName("ACAMP WBSDAC 2026")
+    app.setOrganizationName("WBSDAC")
+    app.setStyleSheet(APP_STYLESHEET)
+    return app
+
+
+def configure_packaged_runtime(
+    paths: ApplicationPaths,
+) -> ApplicationPaths:
+    """Offer an explicit data setup flow only for packaged runs."""
+
+    if not paths.needs_data_setup:
+        return paths
+    RuntimeDataSetupDialog(paths).exec()
+    return ApplicationPaths.from_runtime()
 
 
 def create_application(
@@ -33,10 +53,7 @@ def create_application(
     load_teams: bool = True,
     application_paths: ApplicationPaths | None = None,
 ) -> tuple[QApplication, MainWindow]:
-    app = QApplication.instance() or QApplication(sys.argv)
-    app.setApplicationName("ACAMP WBSDAC 2026")
-    app.setOrganizationName("WBSDAC")
-    app.setStyleSheet(APP_STYLESHEET)
+    app = initialize_qt_application()
 
     paths = application_paths or ApplicationPaths.from_runtime()
     paths.ensure_private_data_directory()
@@ -81,7 +98,10 @@ def create_application(
 
 def main() -> int:
     smoke_test = "--smoke-test" in sys.argv
+    initialize_qt_application()
     paths = ApplicationPaths.from_runtime()
+    if paths.packaged and not smoke_test:
+        paths = configure_packaged_runtime(paths)
     load_local_data = not smoke_test or paths.packaged
     app, window = create_application(
         load_participants=load_local_data,

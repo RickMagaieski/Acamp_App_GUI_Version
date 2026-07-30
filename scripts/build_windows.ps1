@@ -104,19 +104,29 @@ try {
         Out-Null
 
     $setupInstructions = @"
-Coloque manualmente nesta pasta, quando necessário:
+Abra Acamp_App_GUI.exe para usar o assistente de configuração.
+
+O assistente permite:
+1. Escolher uma pasta existente e usar seus arquivos diretamente.
+2. Importar arquivos selecionados com segurança para user_data.
+
+Arquivos obrigatórios:
 - participants.json
 - items.json
 - teams.json
-- client_secret.json
-- token.json (opcional para reutilizar uma autorização existente)
 
+Arquivos Google opcionais:
+- client_secret.json
+- token.json
+
+Não é necessário copiar arquivos manualmente pelo Explorador de Arquivos.
 Não publique arquivos privados nem os adicione ao ZIP. Sem um token
-existente, token.json será criado ou atualizado localmente após uma
-autorização Google bem-sucedida.
+existente, token.json será criado ou atualizado localmente somente após
+uma autorização Google iniciada manualmente.
 "@
+    $setupGuideName = "DATA_SETUP.txt"
     Set-Content `
-        -LiteralPath (Join-Path $userDataDirectory "PLACE_PRIVATE_FILES_HERE.txt") `
+        -LiteralPath (Join-Path $userDataDirectory $setupGuideName) `
         -Value $setupInstructions `
         -Encoding UTF8
 
@@ -163,11 +173,45 @@ autorização Google bem-sucedida.
         foreach ($requiredEntry in @(
             "Acamp_App_GUI/Acamp_App_GUI.exe",
             "Acamp_App_GUI/README_RELEASE.txt",
-            "Acamp_App_GUI/user_data/PLACE_PRIVATE_FILES_HERE.txt"
+            "Acamp_App_GUI/user_data/$setupGuideName"
         )) {
             if ($requiredEntry -notin $archiveEntries) {
                 throw "Entrada obrigatória ausente no arquivo portátil."
             }
+        }
+        $forbiddenArchiveSegments = @(
+            "/design_refs/",
+            "/tests/",
+            "/.git/",
+            "/.idea/",
+            "/.venv/",
+            "/build/",
+            "/__pycache__/"
+        )
+        $forbiddenArchiveEntries = @(
+            $archiveEntries |
+                Where-Object {
+                    $normalized = "/" + $_.TrimStart("/")
+                    $hasForbiddenSegment = $false
+                    foreach ($segment in $forbiddenArchiveSegments) {
+                        if (
+                            $normalized.IndexOf(
+                                $segment,
+                                [System.StringComparison]::OrdinalIgnoreCase
+                            ) -ge 0
+                        ) {
+                            $hasForbiddenSegment = $true
+                            break
+                        }
+                    }
+                    $hasForbiddenSegment -or $normalized.EndsWith(
+                        ".pyc",
+                        [System.StringComparison]::OrdinalIgnoreCase
+                    )
+                }
+        )
+        if ($forbiddenArchiveEntries.Count -ne 0) {
+            throw "O arquivo portátil contém arquivos de desenvolvimento."
         }
     }
     finally {

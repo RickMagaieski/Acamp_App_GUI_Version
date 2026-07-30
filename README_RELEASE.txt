@@ -10,39 +10,58 @@ Python, PyCharm e um ambiente virtual não são necessários no computador de
 destino. Esta é uma aplicação portátil: não há instalador nem atualização
 automática.
 
-PASTA user_data
+CONFIGURAÇÃO DOS DADOS
 
-Os arquivos privados ficam fora do executável, na pasta user_data ao lado
-de Acamp_App_GUI.exe. Coloque manualmente nessa pasta, conforme necessário:
+Os arquivos privados permanecem fora do executável. Na primeira execução,
+o assistente de configuração oferece duas opções:
+
+1. Escolher uma pasta existente e usar os arquivos diretamente nela.
+2. Selecionar um ou mais arquivos para importá-los para a pasta user_data
+   desta aplicação.
+
+Não é necessário copiar e colar arquivos manualmente pelo Explorador de
+Arquivos. A configuração escolhida fica registrada em user_data e é
+reutilizada nas próximas execuções, independentemente da pasta de trabalho
+usada para abrir o programa. O arquivo de configuração registra somente o
+modo de uso e, quando aplicável, o caminho absoluto da pasta escolhida; ele
+não armazena credenciais nem o conteúdo dos participantes.
+
+Os arquivos obrigatórios são:
 
 - participants.json
 - items.json
 - teams.json
+
+Os arquivos Google são opcionais:
+
 - client_secret.json
 - token.json (opcional, para reutilizar uma autorização existente)
 
 Nunca publique, envie a terceiros ou coloque esses arquivos em um
 repositório público. Nunca adicione token.json ao arquivo ZIP de
-distribuição. Se um token existente não for transferido manualmente para
-uma cópia local da pasta user_data, ele será criado ou atualizado nessa
-pasta após uma autorização Google bem-sucedida.
+distribuição. Se um token existente não for selecionado para importação,
+ele será criado ou atualizado na pasta de dados configurada após uma
+autorização Google bem-sucedida.
 
 ARQUIVOS AUSENTES
 
 O aplicativo continua aberto quando participants.json, items.json ou
-teams.json não existem e mostra o estado correspondente na interface.
-Confira o nome do arquivo, a extensão e se ele está diretamente dentro de
-user_data.
+teams.json não existem e oferece novamente o assistente na próxima
+inicialização. Confira o nome e a extensão do arquivo ou escolha outra
+pasta pelo assistente.
 
 GOOGLE SHEETS E USO OFFLINE
 
 A sincronização com Google Sheets é sempre manual. Ela nunca começa ao
 abrir o aplicativo. Para autorizar o Google, client_secret.json deve estar
-em user_data. A primeira autorização pode abrir o navegador padrão e criar
-token.json localmente; autorizações expiradas podem atualizar esse token.
+na pasta de dados configurada. A primeira autorização pode abrir o navegador
+padrão e criar token.json localmente; autorizações expiradas podem atualizar
+esse token.
 
-Sem internet, os recursos locais continuam disponíveis usando os dados já
-presentes em user_data. Sincronização e exclusão remota exigem conexão.
+Sem internet e sem credenciais Google, os recursos locais continuam
+disponíveis usando a pasta de dados configurada. Sincronização e exclusão
+remota exigem conexão e uma ação manual do usuário. O aplicativo não exige
+privilégios de administrador.
 
 WINDOWS SMARTSCREEN
 
@@ -57,6 +76,6 @@ LIMITAÇÕES ATUAIS
 - Não há instalador, assinatura digital ou atualização automática.
 - A sincronização Google é manual e depende das credenciais e permissões
   configuradas.
-- Backups dos arquivos em user_data são responsabilidade do usuário.
+- Backups dos arquivos da pasta de dados são responsabilidade do usuário.
 - A pasta portátil precisa permanecer completa; mover somente o executável
   pode impedir a inicialização.

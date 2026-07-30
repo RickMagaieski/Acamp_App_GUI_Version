@@ -16,7 +16,7 @@ from acamp.repositories import InventoryLoadStatus, ParticipantLoadStatus
 from acamp.services import FinanceService
 from acamp.ui.dialogs import PaymentDetailsDialog
 
-from ..widgets import Card, PageScaffold, PrimaryButton
+from ..widgets import CampLandscape, Card, PageScaffold, PrimaryButton
 
 
 def _value_row(label: str) -> tuple[QWidget, QLabel]:
@@ -47,7 +47,7 @@ class FinancePage(PageScaffold):
         super().__init__(
             "FINANÇAS",
             "Acompanhe preços, pagamentos e o resumo financeiro do acampamento.",
-            "▥",
+            "finance",
         )
         self._service = service
         self._payments = ()
@@ -61,7 +61,8 @@ class FinancePage(PageScaffold):
         columns = QHBoxLayout()
         columns.setSpacing(16)
 
-        prices = Card("LISTA DE PREÇOS")
+        prices = Card("LISTA DE PREÇOS", icon_name="inventory")
+        prices.setMinimumHeight(345)
         for canonical_type, amount in REGISTRATION_PRICES.items():
             row, value_label = _value_row(
                 f"•  {REGISTRATION_LABELS[canonical_type]}"
@@ -70,7 +71,8 @@ class FinancePage(PageScaffold):
             prices.body.addWidget(row)
         columns.addWidget(prices, 1)
 
-        payments = Card("PAGAMENTOS")
+        payments = Card("PAGAMENTOS", icon_name="registrations")
+        payments.setMinimumHeight(345)
         self.status_labels: dict[PaymentStatus, QLabel] = {}
         for status in self.STATUS_ORDER:
             row, value_label = _value_row(status.value)
@@ -87,11 +89,13 @@ class FinancePage(PageScaffold):
         self.payment_empty_label.hide()
         payments.body.addWidget(self.payment_empty_label)
         self.details_button = PrimaryButton("Ver todos os pagamentos  →")
+        self.details_button.setObjectName("orangeButton")
         self.details_button.clicked.connect(self._open_payment_details)
         payments.body.addWidget(self.details_button)
         columns.addWidget(payments, 1)
 
-        summary = Card("RESUMO FINANCEIRO")
+        summary = Card("RESUMO FINANCEIRO", icon_name="finance")
+        summary.setMinimumHeight(345)
         self.summary_labels: dict[str, QLabel] = {}
         for key, label in (
             ("initial", "Saldo inicial"),
@@ -107,7 +111,8 @@ class FinancePage(PageScaffold):
         self.content.addLayout(columns)
 
         lower = QHBoxLayout()
-        available_card = Card("SALDO DISPONÍVEL")
+        available_card = Card("TOTAL FINAL", icon_name="finance")
+        available_card.setMinimumHeight(205)
         self.available_amount = QLabel("$0.00")
         self.available_amount.setObjectName("metricValue")
         available_card.body.addWidget(self.available_amount)
@@ -119,12 +124,14 @@ class FinancePage(PageScaffold):
         lower.addWidget(available_card, 3)
 
         quote = Card(
-            "“ Tudo posso naquele que me fortalece. ”",
+            "“  Tudo posso naquele que me fortalece.  ”",
             "Filipenses 4:13",
+            icon_name="heart",
         )
+        quote.setMinimumHeight(205)
         lower.addWidget(quote, 2)
         self.content.addLayout(lower)
-        self.content.addStretch(1)
+        self.content.addWidget(CampLandscape())
         self.refresh_from_service()
 
     def refresh_from_service(self) -> None:

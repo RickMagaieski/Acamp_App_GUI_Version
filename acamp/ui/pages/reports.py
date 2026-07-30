@@ -8,14 +8,13 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QVBoxLayout,
 )
 
 from acamp.models import format_currency
 from acamp.reporting import CategoryCount, ReportSnapshot
 from acamp.services import ReportingService
 
-from ..widgets import Card, PageScaffold, ReportChartCard
+from ..widgets import CampLandscape, Card, PageScaffold, ReportChartCard
 
 
 def _chart_values(
@@ -27,16 +26,17 @@ def _chart_values(
 def _financial_metric(label: str) -> tuple[QFrame, QLabel]:
     metric = QFrame()
     metric.setObjectName("reportMetric")
-    layout = QVBoxLayout(metric)
-    layout.setContentsMargins(16, 14, 16, 14)
-    layout.setSpacing(5)
+    layout = QHBoxLayout(metric)
+    layout.setContentsMargins(14, 12, 14, 12)
+    layout.setSpacing(12)
 
     label_widget = QLabel(label)
     label_widget.setObjectName("reportFinanceLabel")
     value_widget = QLabel("—")
     value_widget.setObjectName("reportFinanceValue")
     value_widget.setWordWrap(True)
-    layout.addWidget(label_widget)
+    value_widget.setAlignment(Qt.AlignmentFlag.AlignRight)
+    layout.addWidget(label_widget, 1)
     layout.addWidget(value_widget)
     return metric, value_widget
 
@@ -46,7 +46,7 @@ class ReportsPage(PageScaffold):
         super().__init__(
             "RELATÓRIOS",
             "Acompanhe os principais indicadores do acampamento.",
-            "▥",
+            "reports",
         )
         self._service = service
         self.last_snapshot: ReportSnapshot | None = None
@@ -57,83 +57,70 @@ class ReportsPage(PageScaffold):
         self.warning_banner.hide()
         self.content.addWidget(self.warning_banner)
 
-        overview = Card("VISÃO GERAL")
-        overview_row = QHBoxLayout()
-        overview_row.setContentsMargins(2, 0, 2, 0)
-        overview_row.setSpacing(18)
-        self.total_label = QLabel("—")
+        self.total_label = QLabel("—", self.canvas)
         self.total_label.setObjectName("reportTotal")
-        self.total_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        overview_row.addWidget(self.total_label)
-        caption = QLabel(
-            "participantes válidos disponíveis no estado compartilhado"
-        )
-        caption.setObjectName("reportTotalCaption")
-        caption.setWordWrap(True)
-        overview_row.addWidget(caption, 1)
-        overview.body.addLayout(overview_row)
-        self.content.addWidget(overview)
+        self.total_label.hide()
 
-        charts = QGridLayout()
-        charts.setHorizontalSpacing(14)
-        charts.setVerticalSpacing(14)
+        top_charts = QGridLayout()
+        top_charts.setHorizontalSpacing(14)
+        top_charts.setVerticalSpacing(14)
         for column in range(3):
-            charts.setColumnStretch(column, 1)
+            top_charts.setColumnStretch(column, 1)
 
         self.age_chart = ReportChartCard(
             "1. FAIXAS ETÁRIAS",
-            "Distribuição em intervalos mutuamente exclusivos.",
         )
-        charts.addWidget(self.age_chart, 0, 0, 1, 2)
+        self.age_chart.setFixedHeight(285)
+        top_charts.addWidget(self.age_chart, 0, 0)
 
         self.food_chart = ReportChartCard(
             "2. ALIMENTAÇÃO",
-            "Respostas sobre consumo de carne.",
         )
-        charts.addWidget(self.food_chart, 0, 2)
+        self.food_chart.setFixedHeight(285)
+        top_charts.addWidget(self.food_chart, 0, 1)
 
         self.accommodation_chart = ReportChartCard("3. ACOMODAÇÃO")
-        charts.addWidget(self.accommodation_chart, 1, 0)
+        self.accommodation_chart.setFixedHeight(285)
+        top_charts.addWidget(self.accommodation_chart, 0, 2)
+        self.content.addLayout(top_charts)
 
         self.transportation_chart = ReportChartCard(
             "4. TRANSPORTE",
-            "Necessidade de ajuda com transporte.",
         )
-        charts.addWidget(self.transportation_chart, 1, 1)
+        self.transportation_chart.setFixedHeight(265)
 
-        self.payment_chart = ReportChartCard(
-            "5. SITUAÇÃO DOS PAGAMENTOS",
-            "Classificação centralizada da página Finanças.",
-        )
-        charts.addWidget(self.payment_chart, 1, 2)
-        self.content.addLayout(charts)
-
-        financial = Card(
-            "6. RESUMO FINANCEIRO",
-            "Os mesmos cálculos e valores exibidos na página Finanças.",
-        )
-        financial_grid = QGridLayout()
-        financial_grid.setHorizontalSpacing(12)
-        financial_grid.setVerticalSpacing(12)
+        financial = Card("5. FINANCEIRO", icon_name="finance")
+        financial.setFixedHeight(265)
         self.financial_labels: dict[str, QLabel] = {}
-        for index, (key, label) in enumerate((
+        for key, label in (
             ("entries", "Entradas"),
             ("expenses", "Gastos"),
-            ("result", "Resultado do evento"),
-            ("available", "Saldo disponível"),
-        )):
+            ("result", "Saldo atual"),
+        ):
             metric, value_label = _financial_metric(label)
             self.financial_labels[key] = value_label
-            financial_grid.addWidget(metric, 0, index)
-            financial_grid.setColumnStretch(index, 1)
-        financial.body.addLayout(financial_grid)
-        self.content.addWidget(financial)
+            financial.body.addWidget(metric)
+        available_label = QLabel("—", self.canvas)
+        available_label.hide()
+        self.financial_labels["available"] = available_label
+
+        middle = QHBoxLayout()
+        middle.setSpacing(14)
+        middle.addWidget(self.transportation_chart, 3)
+        middle.addWidget(financial, 2)
+        self.content.addLayout(middle)
+
+        self.payment_chart = ReportChartCard("6. PAGAMENTOS")
+        self.payment_chart.setFixedHeight(245)
+        self.content.addWidget(self.payment_chart)
 
         self.team_chart = ReportChartCard(
             "7. PONTUAÇÃO DAS EQUIPES",
-            "Ranking por pontuação, da maior para a menor.",
+            "Ranking do maior para o menor resultado.",
         )
-        self.team_chart.setMinimumHeight(390)
+        self.team_chart.setFixedHeight(300)
+        self.team_chart.chart_view.setMinimumHeight(125)
+        self.team_chart.empty_label.setMinimumHeight(125)
         self.ranking_label = QLabel()
         self.ranking_label.setObjectName("reportRanking")
         self.ranking_label.setWordWrap(True)
@@ -142,7 +129,7 @@ class ReportsPage(PageScaffold):
             self.ranking_label,
         )
         self.content.addWidget(self.team_chart)
-        self.content.addStretch(1)
+        self.content.addWidget(CampLandscape())
 
         self.refresh_from_service()
 
@@ -183,9 +170,8 @@ class ReportsPage(PageScaffold):
                 )
             return
 
-        self.age_chart.set_bar_data(
-            _chart_values(snapshot.age_groups),
-            label_angle=-18,
+        self.age_chart.set_pie_data(
+            _chart_values(snapshot.age_groups)
         )
         self.food_chart.set_pie_data(
             _chart_values(snapshot.food_categories)
@@ -193,12 +179,12 @@ class ReportsPage(PageScaffold):
         self.accommodation_chart.set_pie_data(
             _chart_values(snapshot.accommodation_categories)
         )
-        self.transportation_chart.set_pie_data(
-            _chart_values(snapshot.transportation_categories)
+        self.transportation_chart.set_bar_data(
+            _chart_values(snapshot.transportation_categories),
+            label_angle=-12,
         )
-        self.payment_chart.set_bar_data(
-            _chart_values(snapshot.payment_statuses),
-            label_angle=-18,
+        self.payment_chart.set_pie_data(
+            _chart_values(snapshot.payment_statuses)
         )
 
     def _refresh_financial_summary(

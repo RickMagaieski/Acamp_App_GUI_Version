@@ -39,19 +39,19 @@ from .pages.finance import FinancePage
 from .pages.inventory import InventoryPage
 from .pages.registrations import RegistrationsPage
 from .pages.reports import ReportsPage
-from .widgets import SidebarButton
+from .widgets import BrandMark, SidebarButton, SidebarFooterCard
 
 
 class MainWindow(QMainWindow):
     participant_state_changed = Signal(object)
 
     PAGE_DEFINITIONS = (
-        ("⌂", "Dashboard", DashboardPage),
-        ("♙", "Inscrições", RegistrationsPage),
-        ("$", "Finanças", FinancePage),
-        ("◇", "Inventário", InventoryPage),
-        ("♜", "Atividades", ActivitiesPage),
-        ("▥", "Relatórios", ReportsPage),
+        ("dashboard", "Dashboard", DashboardPage),
+        ("registrations", "Inscrições", RegistrationsPage),
+        ("finance", "Finanças", FinancePage),
+        ("inventory", "Inventário", InventoryPage),
+        ("activities", "Atividades", ActivitiesPage),
+        ("reports", "Relatórios", ReportsPage),
     )
 
     def __init__(
@@ -64,8 +64,8 @@ class MainWindow(QMainWindow):
     ):
         super().__init__()
         self.setWindowTitle("ACAMP WBSDAC 2026")
-        self.resize(1440, 900)
-        self.setMinimumSize(1040, 680)
+        self.resize(1440, 930)
+        self.setMinimumSize(1080, 700)
 
         root = QWidget()
         root.setObjectName("applicationRoot")
@@ -160,15 +160,12 @@ class MainWindow(QMainWindow):
     def _build_sidebar(self) -> QWidget:
         sidebar = QWidget()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(250)
+        sidebar.setFixedWidth(280)
         layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(24, 28, 24, 24)
-        layout.setSpacing(8)
+        layout.setContentsMargins(28, 32, 28, 24)
+        layout.setSpacing(7)
 
-        camp_symbol = QLabel("♠  △")
-        camp_symbol.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        camp_symbol.setStyleSheet("color: #cbd2be; font-size: 24px;")
-        layout.addWidget(camp_symbol)
+        layout.addWidget(BrandMark())
 
         brand = QLabel("ACAMP")
         brand.setObjectName("brandTitle")
@@ -184,7 +181,7 @@ class MainWindow(QMainWindow):
         tagline.setObjectName("brandTagline")
         tagline.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(tagline)
-        layout.addSpacing(34)
+        layout.addSpacing(36)
 
         self.button_group = QButtonGroup(self)
         self.button_group.setExclusive(True)
@@ -200,15 +197,10 @@ class MainWindow(QMainWindow):
 
         layout.addStretch(1)
 
-        footer = QLabel("♡\n\nServindo, amando\ne fazendo a diferença!")
-        footer.setObjectName("sidebarFooter")
-        footer.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        footer.setWordWrap(True)
-        footer.setMinimumHeight(110)
-        footer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        footer.setStyleSheet(
-            "background: rgba(255,255,255,0.08); border-radius: 14px;"
-            "padding: 16px; color: #eef1e9;"
+        footer = SidebarFooterCard()
+        footer.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
         )
         layout.addWidget(footer)
         return sidebar

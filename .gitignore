@@ -4,6 +4,7 @@ participants.json
 items.json
 teams.json
 credentials.json
+data_location.json
 
 __pycache__/
 *.pyc

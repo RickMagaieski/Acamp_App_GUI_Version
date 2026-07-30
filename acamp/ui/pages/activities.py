@@ -29,7 +29,7 @@ from acamp.ui.models import (
     filter_teams,
 )
 
-from ..widgets import Card, PageScaffold, PrimaryButton
+from ..widgets import CampLandscape, Card, PageScaffold, PrimaryButton
 
 
 class ActivitiesPage(PageScaffold):
@@ -39,7 +39,7 @@ class ActivitiesPage(PageScaffold):
         super().__init__(
             "ATIVIDADES (TIMES)",
             "Gerencie os times, participantes e pontos do acampamento.",
-            "♜",
+            "activities",
         )
         self._service = service
         self._selected_source_index: int | None = None
@@ -51,13 +51,19 @@ class ActivitiesPage(PageScaffold):
         create_team = Card(
             "CRIAR TIME",
             "Crie um time vazio. Participantes são gerenciados separadamente.",
+            icon_name="registrations",
         )
+        create_team.setMinimumHeight(185)
         self.create_button = PrimaryButton("＋  Novo Time")
         self.create_button.clicked.connect(self._open_create_dialog)
         create_team.body.addWidget(self.create_button)
         upper.addWidget(create_team, 2)
 
-        selected_card = Card("TIME SELECIONADO")
+        selected_card = Card(
+            "GERENCIAR PARTICIPANTES DO TIME SELECIONADO",
+            icon_name="registrations",
+        )
+        selected_card.setMinimumHeight(185)
         self.selected_name_label = QLabel("Selecione uma equipe.")
         self.selected_name_label.setObjectName("selectedTeamName")
         self.selected_meta_label = QLabel("Líder: —   •   Cor: —")
@@ -75,6 +81,7 @@ class ActivitiesPage(PageScaffold):
         )
         participant_actions.addWidget(self.add_participant_button)
         self.remove_participant_button = PrimaryButton("Remover Participante")
+        self.remove_participant_button.setObjectName("destructiveButton")
         self.remove_participant_button.clicked.connect(
             self._remove_selected_member
         )
@@ -84,13 +91,7 @@ class ActivitiesPage(PageScaffold):
         self.content.addLayout(upper)
 
         controls = QHBoxLayout()
-        self.search_field = QLineEdit()
-        self.search_field.setObjectName("placeholderSearch")
-        self.search_field.setPlaceholderText("Procurar time...")
-        self.search_field.setClearButtonEnabled(True)
-        self.search_field.textChanged.connect(self._search_changed)
-        controls.addWidget(self.search_field, 1)
-        controls.addStretch(1)
+        controls.setSpacing(10)
         self.add_points_button = PrimaryButton("＋  Adicionar Pontos")
         self.add_points_button.clicked.connect(
             lambda: self._open_score_dialog(adding=True)
@@ -98,14 +99,23 @@ class ActivitiesPage(PageScaffold):
         controls.addWidget(self.add_points_button)
         self.points_button = self.add_points_button
         self.remove_points_button = PrimaryButton("−  Remover Pontos")
+        self.remove_points_button.setObjectName("secondaryButton")
         self.remove_points_button.clicked.connect(
             lambda: self._open_score_dialog(adding=False)
         )
         controls.addWidget(self.remove_points_button)
         self.delete_selected_button = PrimaryButton("Remover Time")
+        self.delete_selected_button.setObjectName("destructiveButton")
         self.delete_selected_button.clicked.connect(self._delete_selected_team)
         controls.addWidget(self.delete_selected_button)
-        self.content.addLayout(controls)
+        controls.addStretch(1)
+        self.search_field = QLineEdit()
+        self.search_field.setObjectName("placeholderSearch")
+        self.search_field.setPlaceholderText("Procurar time...")
+        self.search_field.setClearButtonEnabled(True)
+        self.search_field.textChanged.connect(self._search_changed)
+        self.search_field.setMaximumWidth(300)
+        controls.addWidget(self.search_field)
 
         self.error_banner = QLabel()
         self.error_banner.setObjectName("teamError")
@@ -113,8 +123,10 @@ class ActivitiesPage(PageScaffold):
         self.error_banner.hide()
         self.content.addWidget(self.error_banner)
 
-        team_card = Card("TIMES")
+        team_card = Card("TIMES", icon_name="activities")
+        team_card.setMinimumHeight(330)
         team_card.body.setContentsMargins(0, 16, 0, 0)
+        team_card.body.addLayout(controls)
         self.table_model = TeamTableModel(parent=self)
         self.table_view = self._make_table("teamTable", self.table_model, 48)
         self.table_view.horizontalHeader().setSectionResizeMode(
@@ -137,6 +149,7 @@ class ActivitiesPage(PageScaffold):
         lower.setSpacing(16)
 
         members_card = Card("PARTICIPANTES DO TIME")
+        members_card.setMaximumHeight(280)
         self.member_count_label = QLabel("Total: 0 participantes")
         self.member_count_label.setObjectName("cardSubtitle")
         members_card.body.addWidget(self.member_count_label)
@@ -159,6 +172,7 @@ class ActivitiesPage(PageScaffold):
         lower.addWidget(members_card, 3)
 
         ranking_card = Card("RANKING")
+        ranking_card.setMaximumHeight(280)
         self.ranking_model = TeamRankingTableModel(parent=self)
         self.ranking_table = self._make_table(
             "teamRankingTable",
@@ -184,7 +198,7 @@ class ActivitiesPage(PageScaffold):
         self.total_label = QLabel()
         self.total_label.setObjectName("teamTotal")
         self.content.addWidget(self.total_label)
-        self.content.addStretch(1)
+        self.content.addWidget(CampLandscape())
         self.refresh_from_service()
 
     @staticmethod

@@ -61,6 +61,13 @@ criado ou atualizado após uma autorização bem-sucedida.
 Não copie dados reais, credenciais ou tokens para testes, código-fonte,
 documentação, relatórios, capturas de tela ou pacotes distribuídos.
 
+Na execução empacotada, um assistente é aberto quando a localização dos
+dados ainda não foi configurada ou quando falta algum dos três arquivos
+obrigatórios. O usuário pode escolher uma pasta existente ou importar
+explicitamente arquivos selecionados para `user_data`. A estratégia fica
+registrada em `data_location.json`, que contém apenas o modo escolhido e,
+quando aplicável, o caminho da pasta.
+
 ## Google Sheets
 
 A sincronização é sempre iniciada manualmente pelo botão do Dashboard.
@@ -95,7 +102,9 @@ mesma revisão. O executável é criado em
 `dist\Acamp_App_GUI\Acamp_App_GUI.exe`, e o arquivo portátil em
 `release\Acamp_App_GUI_Windows.zip`.
 
-Na execução empacotada, dados e credenciais privados são resolvidos apenas
-em `user_data` ao lado do executável. Eles não são copiados do projeto e
-não são incluídos na distribuição. O arquivo `README_RELEASE.txt` contém as
-instruções destinadas ao usuário da versão portátil.
+Na execução empacotada, dados e credenciais privados permanecem externos.
+O assistente pode usar diretamente uma pasta escolhida ou copiar somente
+os arquivos selecionados pelo usuário para `user_data`. Nenhum arquivo
+privado é copiado automaticamente do projeto ou incluído na distribuição.
+O arquivo `README_RELEASE.txt` contém as instruções destinadas ao usuário
+da versão portátil.

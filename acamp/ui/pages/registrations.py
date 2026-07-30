@@ -23,7 +23,7 @@ from acamp.ui.models import (
     sort_participants,
 )
 
-from ..widgets import Card, PageScaffold, PrimaryButton
+from ..widgets import CampLandscape, Card, PageScaffold, PrimaryButton
 
 
 class RegistrationsPage(PageScaffold):
@@ -35,7 +35,7 @@ class RegistrationsPage(PageScaffold):
         super().__init__(
             "INSCRIÇÕES",
             "Gerencie os participantes inscritos no acampamento.",
-            "♙",
+            "registrations",
         )
         self._load_result = load_result
         self._participants = load_result.participants
@@ -54,7 +54,8 @@ class RegistrationsPage(PageScaffold):
         self.search_field.textChanged.connect(self._on_search_changed)
         search_row.addWidget(self.search_field, 1)
 
-        self.search_button = PrimaryButton("⌕  Pesquisa")
+        self.search_button = PrimaryButton("Pesquisa")
+        self.search_button.setObjectName("searchButton")
         self.search_button.setToolTip("A busca é atualizada enquanto você digita.")
         self.search_button.clicked.connect(self.search_field.setFocus)
         search_row.addWidget(self.search_button)
@@ -73,7 +74,7 @@ class RegistrationsPage(PageScaffold):
         self.content.addWidget(self.cache_warning_label)
 
         table_card = Card()
-        table_card.setMinimumHeight(480)
+        table_card.setFixedHeight(480)
         table_card.body.setContentsMargins(0, 0, 0, 0)
 
         self.table_model = ParticipantTableModel(parent=self)
@@ -136,7 +137,7 @@ class RegistrationsPage(PageScaffold):
         self.next_button.clicked.connect(self._next_page)
         footer.addWidget(self.next_button)
         self.content.addLayout(footer)
-        self.content.addStretch(1)
+        self.content.addWidget(CampLandscape())
 
         self.table_view.horizontalHeader().sortIndicatorChanged.connect(
             self._on_sort_changed
@@ -289,7 +290,7 @@ class RegistrationsPage(PageScaffold):
     def _refresh_view(self) -> None:
         total = len(self._participants)
         noun = "inscrito" if total == 1 else "inscritos"
-        self.total_label.setText(f"♙  Total: {total} {noun}")
+        self.total_label.setText(f"●  Total: {total} {noun}")
 
         load_message = self._load_state_message()
         if load_message is not None:
