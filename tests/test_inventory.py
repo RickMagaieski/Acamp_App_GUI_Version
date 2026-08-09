@@ -215,24 +215,7 @@ class InventoryPageDeletionTests(unittest.TestCase):
         service.load()
         return InventoryPage(service)
 
-    def test_cancelled_deletion_changes_nothing(self):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "items.json"
-            page = self._build_page(path)
-            original = path.read_text(encoding="utf-8")
-            action = page.table_model.index(
-                0,
-                page.table_model.ACTION_COLUMN,
-            )
-            with patch(
-                "acamp.ui.pages.inventory.confirm_destructive",
-                return_value=False,
-            ):
-                page._table_clicked(action)
-            self.assertEqual(path.read_text(encoding="utf-8"), original)
-            self.assertEqual(page.table_model.rowCount(), 1)
-
-    def test_confirmed_deletion_updates_file_and_table(self):
+    def test_direct_deletion_updates_file_and_table(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "items.json"
             page = self._build_page(path)
@@ -240,11 +223,7 @@ class InventoryPageDeletionTests(unittest.TestCase):
                 0,
                 page.table_model.ACTION_COLUMN,
             )
-            with patch(
-                "acamp.ui.pages.inventory.confirm_destructive",
-                return_value=True,
-            ):
-                page._table_clicked(action)
+            page._table_clicked(action)
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), [])
             self.assertEqual(page.table_model.rowCount(), 0)
 

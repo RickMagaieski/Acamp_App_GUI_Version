@@ -44,18 +44,12 @@ def _financial_metric(label: str) -> tuple[QFrame, QLabel]:
 class ReportsPage(PageScaffold):
     def __init__(self, service: ReportingService):
         super().__init__(
-            "RELATÓRIOS",
+            "Reports",
             "Acompanhe os principais indicadores do acampamento.",
             "reports",
         )
         self._service = service
         self.last_snapshot: ReportSnapshot | None = None
-
-        self.warning_banner = QLabel()
-        self.warning_banner.setObjectName("reportWarning")
-        self.warning_banner.setWordWrap(True)
-        self.warning_banner.hide()
-        self.content.addWidget(self.warning_banner)
 
         self.total_label = QLabel("—", self.canvas)
         self.total_label.setObjectName("reportTotal")
@@ -114,21 +108,6 @@ class ReportsPage(PageScaffold):
         self.payment_chart.setFixedHeight(245)
         self.content.addWidget(self.payment_chart)
 
-        self.team_chart = ReportChartCard(
-            "7. PONTUAÇÃO DAS EQUIPES",
-            "Ranking do maior para o menor resultado.",
-        )
-        self.team_chart.setFixedHeight(300)
-        self.team_chart.chart_view.setMinimumHeight(125)
-        self.team_chart.empty_label.setMinimumHeight(125)
-        self.ranking_label = QLabel()
-        self.ranking_label.setObjectName("reportRanking")
-        self.ranking_label.setWordWrap(True)
-        self.team_chart.body.insertWidget(
-            self.team_chart.body.count() - 2,
-            self.ranking_label,
-        )
-        self.content.addWidget(self.team_chart)
         self.content.addWidget(CampLandscape())
 
         self.refresh_from_service()
@@ -143,8 +122,6 @@ class ReportsPage(PageScaffold):
         )
         self._refresh_participant_charts(snapshot)
         self._refresh_financial_summary(snapshot)
-        self._refresh_team_chart(snapshot)
-        self._refresh_warning(snapshot)
 
     def _refresh_participant_charts(
         self,
@@ -179,9 +156,8 @@ class ReportsPage(PageScaffold):
         self.accommodation_chart.set_pie_data(
             _chart_values(snapshot.accommodation_categories)
         )
-        self.transportation_chart.set_bar_data(
-            _chart_values(snapshot.transportation_categories),
-            label_angle=-12,
+        self.transportation_chart.set_pie_data(
+            _chart_values(snapshot.transportation_categories)
         )
         self.payment_chart.set_pie_data(
             _chart_values(snapshot.payment_statuses)
@@ -204,58 +180,3 @@ class ReportsPage(PageScaffold):
         self.financial_labels["available"].setText(
             format_currency(financial.available_balance)
         )
-
-    def _refresh_team_chart(self, snapshot: ReportSnapshot) -> None:
-        if not snapshot.teams_available:
-            self.ranking_label.clear()
-            self.team_chart.show_empty(
-                "Os dados de equipes não estão disponíveis."
-            )
-            return
-        if not snapshot.team_ranking:
-            self.ranking_label.clear()
-            self.team_chart.show_empty(
-                "Ainda não há equipes cadastradas."
-            )
-            return
-
-        ranking_lines = []
-        chart_values = []
-        for entry in snapshot.team_ranking:
-            score = entry.team.score_value
-            point_label = "ponto" if abs(score) == 1 else "pontos"
-            ranking_lines.append(
-                f"{entry.position}º  {entry.team.name} — "
-                f"{score} {point_label}"
-            )
-            chart_values.append(
-                (f"{entry.position}º {entry.team.name}", score)
-            )
-        self.ranking_label.setText("\n".join(ranking_lines))
-        self.team_chart.set_bar_data(
-            tuple(chart_values),
-            label_angle=-20,
-        )
-
-    def _refresh_warning(self, snapshot: ReportSnapshot) -> None:
-        messages: list[str] = []
-        if not snapshot.participants_available:
-            messages.append(
-                "Os dados de participantes não estão disponíveis."
-            )
-        if (
-            not snapshot.participants_available
-            or not snapshot.inventory_available
-        ):
-            messages.append(
-                "Os dados financeiros não estão totalmente disponíveis."
-            )
-        if not snapshot.teams_available:
-            messages.append("Os dados de equipes não estão disponíveis.")
-        if snapshot.has_unclassified_records:
-            messages.append(
-                "Alguns registros não puderam ser classificados."
-            )
-
-        self.warning_banner.setText("  •  ".join(messages))
-        self.warning_banner.setVisible(bool(messages))

@@ -337,11 +337,7 @@ class DashboardApplicationTests(unittest.TestCase):
                     1,
                     window.inventory_page.table_model.ACTION_COLUMN,
                 )
-                with patch(
-                    "acamp.ui.pages.inventory.confirm_destructive",
-                    return_value=True,
-                ):
-                    window.inventory_page._table_clicked(action)
+                window.inventory_page._table_clicked(action)
                 self.assertEqual(
                     dashboard.last_snapshot.inventory_item_count,
                     1,
@@ -383,11 +379,7 @@ class DashboardApplicationTests(unittest.TestCase):
                 self.assertEqual(dashboard.last_snapshot.team_count, 3)
 
                 created_team = teams.teams[-1]
-                with patch(
-                    "acamp.ui.pages.activities.confirm_destructive",
-                    return_value=True,
-                ):
-                    window.activities_page._confirm_delete_team(created_team)
+                window.activities_page._delete_team(created_team)
                 self.assertEqual(dashboard.last_snapshot.team_count, 2)
 
                 replacement = ParticipantLoadResult(

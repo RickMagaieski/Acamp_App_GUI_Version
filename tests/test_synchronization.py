@@ -11,9 +11,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 from google.auth.exceptions import RefreshError
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication
 
 from acamp.config import GoogleSheetsConfig
+from acamp.pricing import PaymentStatus, calculate_financial_snapshot
 from acamp.repositories import (
     InventoryRepository,
     ParticipantLoadResult,
@@ -112,11 +113,32 @@ class SheetParsingTests(unittest.TestCase):
 
         self.assertEqual(result.loaded_count, 1)
         self.assertEqual(result.warning_rows, 1)
-        self.assertEqual(result.records[0]["age"], 0)
+        self.assertEqual(result.records[0]["age"], "idade inválida")
         self.assertEqual(result.records[0]["payment"], 0.0)
         self.assertEqual(result.records[0]["accommodation"], "cabine")
         self.assertEqual(result.records[0]["phone"], "")
         self.assertEqual(result.records[0]["id"], "")
+
+    def test_valid_young_age_survives_sync_without_exempting_invalid_age(self):
+        parsed = parse_sheet_values([
+            ["Cabeçalho"],
+            _sheet_row(first_name="Criança", last_name="Sete", age="7"),
+            _sheet_row(
+                first_name="Idade", last_name="Inválida", age="inválida"
+            ),
+        ])
+        participants = participant_result_from_records(parsed.records)
+
+        self.assertEqual(participants.participants[0].age, "7")
+        self.assertEqual(participants.participants[1].age, "-")
+        financial = calculate_financial_snapshot(
+            participants.participants, ()
+        )
+        self.assertEqual(financial.payments[0].status, PaymentStatus.SPECIAL)
+        self.assertNotEqual(
+            financial.payments[1].status,
+            PaymentStatus.SPECIAL,
+        )
 
     def test_missing_name_is_skipped_without_exposing_row(self):
         result = parse_sheet_values([
@@ -390,7 +412,7 @@ class SynchronizationServiceTests(unittest.TestCase):
             "Os dados foram baixados, mas não puderam ser salvos.",
         )
 
-    def test_damaged_cache_requires_explicit_confirmation(self):
+    def test_damaged_cache_is_replaced_by_direct_sync_action(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "participants.json"
             path.write_text("{json inválido", encoding="utf-8")
@@ -398,26 +420,16 @@ class SynchronizationServiceTests(unittest.TestCase):
                 FakeGateway(SheetParseResult(())),
                 ParticipantRepository(path),
             )
-            self.assertTrue(
-                service.local_cache_requires_replacement_confirmation()
-            )
-            refused = service.synchronize()
-            self.assertFalse(refused.succeeded)
-            self.assertEqual(
-                refused.technical_code,
-                "damaged_cache_confirmation_required",
-            )
-            self.assertEqual(service._gateway.calls, 0)
+            result = service.synchronize()
+            self.assertTrue(result.succeeded)
+            self.assertEqual(service._gateway.calls, 1)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), [])
 
 
 class ImmediateSynchronizationService:
-    def __init__(self, result, *, damaged=False):
+    def __init__(self, result):
         self.result = result
-        self.damaged = damaged
         self.calls = 0
-
-    def local_cache_requires_replacement_confirmation(self):
-        return self.damaged
 
     def synchronize(self, **_options):
         self.calls += 1
@@ -510,15 +522,9 @@ class SynchronizationUiTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             window = self._window(Path(directory), service)
             try:
-                with (
-                    patch(
-                        "acamp.ui.main_window.QMessageBox.question",
-                        return_value=QMessageBox.StandardButton.Yes,
-                    ) as confirmation,
-                    patch(
+                with patch(
                         "acamp.ui.pages.dashboard.QMessageBox.information"
-                    ) as information,
-                ):
+                    ) as information:
                     window.dashboard_page.sync_button.click()
                     self.assertTrue(service.started.wait(timeout=1))
                     QApplication.processEvents()
@@ -537,7 +543,6 @@ class SynchronizationUiTests(unittest.TestCase):
                         lambda: window._sync_thread is None
                     )
 
-                confirmation.assert_called_once()
                 information.assert_called_once()
                 self.assertIn(
                     "2 participantes carregados",
@@ -595,15 +600,9 @@ class SynchronizationUiTests(unittest.TestCase):
             window = self._window(Path(directory), service)
             original_state = window.finance_service.participant_result
             try:
-                with (
-                    patch(
-                        "acamp.ui.main_window.QMessageBox.question",
-                        return_value=QMessageBox.StandardButton.Yes,
-                    ),
-                    patch(
+                with patch(
                         "acamp.ui.pages.dashboard.QMessageBox.warning"
-                    ) as warning,
-                ):
+                    ) as warning:
                     window.dashboard_page.sync_button.click()
                     self._wait_until(
                         lambda: window._sync_thread is None

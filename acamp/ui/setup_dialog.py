@@ -193,25 +193,6 @@ class RuntimeDataSetupDialog(QDialog):
             return
 
         selected_paths = tuple(Path(value) for value in selected)
-        replacing = tuple(
-            source.name
-            for source in selected_paths
-            if (self._managed_root / source.name).exists()
-        )
-        if replacing:
-            answer = QMessageBox.question(
-                self,
-                "Substituir arquivos existentes?",
-                "Os arquivos selecionados já existem em user_data:\n"
-                + "\n".join(replacing)
-                + "\n\nDeseja substituí-los?",
-                QMessageBox.StandardButton.Yes
-                | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if answer != QMessageBox.StandardButton.Yes:
-                return
-
         result = import_runtime_files(selected_paths, self._managed_root)
         if result.failed:
             QMessageBox.warning(

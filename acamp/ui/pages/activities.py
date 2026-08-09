@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QTableView,
+    QVBoxLayout,
 )
 
 from acamp.models import Team, TeamDraft, TeamMemberDraft
@@ -20,7 +21,6 @@ from acamp.ui.dialogs import (
     AddTeamDialog,
     AddTeamMemberDialog,
     ScoreChangeDialog,
-    confirm_destructive,
 )
 from acamp.ui.models import (
     TeamMemberTableModel,
@@ -50,7 +50,7 @@ class ActivitiesPage(PageScaffold):
 
         create_team = Card(
             "CRIAR TIME",
-            "Crie um time vazio. Participantes são gerenciados separadamente.",
+            "Use esta ação para criar um novo time.",
             icon_name="registrations",
         )
         create_team.setMinimumHeight(185)
@@ -104,7 +104,7 @@ class ActivitiesPage(PageScaffold):
             lambda: self._open_score_dialog(adding=False)
         )
         controls.addWidget(self.remove_points_button)
-        self.delete_selected_button = PrimaryButton("Remover Time")
+        self.delete_selected_button = PrimaryButton("Deletar Time")
         self.delete_selected_button.setObjectName("destructiveButton")
         self.delete_selected_button.clicked.connect(self._delete_selected_team)
         controls.addWidget(self.delete_selected_button)
@@ -123,8 +123,11 @@ class ActivitiesPage(PageScaffold):
         self.error_banner.hide()
         self.content.addWidget(self.error_banner)
 
+        main_lower = QHBoxLayout()
+        main_lower.setSpacing(16)
+
         team_card = Card("TIMES", icon_name="activities")
-        team_card.setMinimumHeight(330)
+        team_card.setMinimumHeight(575)
         team_card.body.setContentsMargins(0, 16, 0, 0)
         team_card.body.addLayout(controls)
         self.table_model = TeamTableModel(parent=self)
@@ -135,7 +138,7 @@ class ActivitiesPage(PageScaffold):
         self.table_view.horizontalHeader().setSectionResizeMode(
             1, QHeaderView.ResizeMode.Stretch
         )
-        for column in (2, 3, 4, 5):
+        for column in (2, 3, 4):
             self.table_view.horizontalHeader().setSectionResizeMode(
                 column, QHeaderView.ResizeMode.ResizeToContents
             )
@@ -143,13 +146,16 @@ class ActivitiesPage(PageScaffold):
         self.team_state_label = self._state_label(245)
         team_card.body.addWidget(self.table_view)
         team_card.body.addWidget(self.team_state_label)
-        self.content.addWidget(team_card)
+        self.total_label = QLabel()
+        self.total_label.setObjectName("teamTotal")
+        team_card.body.addWidget(self.total_label)
+        main_lower.addWidget(team_card, 7)
 
-        lower = QHBoxLayout()
-        lower.setSpacing(16)
+        side = QVBoxLayout()
+        side.setSpacing(16)
 
         members_card = Card("PARTICIPANTES DO TIME")
-        members_card.setMaximumHeight(280)
+        members_card.setFixedHeight(280)
         self.member_count_label = QLabel("Total: 0 participantes")
         self.member_count_label.setObjectName("cardSubtitle")
         members_card.body.addWidget(self.member_count_label)
@@ -169,10 +175,10 @@ class ActivitiesPage(PageScaffold):
         self.member_state_label = self._state_label(180)
         members_card.body.addWidget(self.member_table)
         members_card.body.addWidget(self.member_state_label)
-        lower.addWidget(members_card, 3)
+        side.addWidget(members_card)
 
         ranking_card = Card("RANKING")
-        ranking_card.setMaximumHeight(280)
+        ranking_card.setFixedHeight(280)
         self.ranking_model = TeamRankingTableModel(parent=self)
         self.ranking_table = self._make_table(
             "teamRankingTable",
@@ -192,12 +198,9 @@ class ActivitiesPage(PageScaffold):
         self.ranking_state_label = self._state_label(180)
         ranking_card.body.addWidget(self.ranking_table)
         ranking_card.body.addWidget(self.ranking_state_label)
-        lower.addWidget(ranking_card, 2)
-        self.content.addLayout(lower)
-
-        self.total_label = QLabel()
-        self.total_label.setObjectName("teamTotal")
-        self.content.addWidget(self.total_label)
+        side.addWidget(ranking_card)
+        main_lower.addLayout(side, 3)
+        self.content.addLayout(main_lower)
         self.content.addWidget(CampLandscape())
         self.refresh_from_service()
 
@@ -300,7 +303,7 @@ class ActivitiesPage(PageScaffold):
             return
         self._select_team(team)
         if index.column() == TeamTableModel.ACTION_COLUMN:
-            self._confirm_delete_team(team)
+            self._delete_team(team)
 
     def _ranking_clicked(self, index: QModelIndex) -> None:
         entry = self.ranking_model.entry_at(index.row())
@@ -463,14 +466,6 @@ class ActivitiesPage(PageScaffold):
             )
             return
 
-        confirmed = confirm_destructive(
-            self,
-            title="Remover participante",
-            message=f'Remover "{member.name}" do time "{team.name}"?',
-            confirm_text="Remover",
-        )
-        if not confirmed:
-            return
         result = self._service.remove_member(
             team.source_index,
             member.source_index,
@@ -505,17 +500,9 @@ class ActivitiesPage(PageScaffold):
         if team is None:
             self._show_action_error("Selecione uma equipe.")
             return
-        self._confirm_delete_team(team)
+        self._delete_team(team)
 
-    def _confirm_delete_team(self, team: Team) -> None:
-        confirmed = confirm_destructive(
-            self,
-            title="Excluir time",
-            message=f'Deseja realmente excluir o time "{team.name}"?',
-            confirm_text="Excluir",
-        )
-        if not confirmed:
-            return
+    def _delete_team(self, team: Team) -> None:
         result = self._service.delete_team(team.source_index)
         if result.succeeded:
             self._selected_source_index = None

@@ -200,25 +200,12 @@ class ActivitiesPageTests(unittest.TestCase):
             self.assertFalse(page.remove_participant_button.isEnabled())
             self.assertTrue(page.points_button.isEnabled())
 
-    def test_cancelled_and_confirmed_deletion(self):
+    def test_direct_team_deletion(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "teams.json"
             page = self._build_page(path)
-            original = path.read_text(encoding="utf-8")
             team = page.table_model.team_at(0)
-            with patch(
-                "acamp.ui.pages.activities.confirm_destructive",
-                return_value=False,
-            ):
-                page._confirm_delete_team(team)
-            self.assertEqual(path.read_text(encoding="utf-8"), original)
-            self.assertEqual(page.table_model.rowCount(), 1)
-
-            with patch(
-                "acamp.ui.pages.activities.confirm_destructive",
-                return_value=True,
-            ):
-                page._confirm_delete_team(team)
+            page._delete_team(team)
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), [])
             self.assertEqual(page.table_model.rowCount(), 0)
 

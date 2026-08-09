@@ -21,7 +21,6 @@ from .repositories import (
     InventoryLoadResult,
     InventoryRepository,
     ParticipantLoadResult,
-    ParticipantLoadStatus,
     ParticipantRepository,
     TeamLoadResult,
     TeamRepository,
@@ -249,11 +248,6 @@ class ParticipantSynchronizationResult:
 class SynchronizationService:
     """Downloads and persists participants without changing live UI state."""
 
-    _DAMAGED_CACHE_STATUSES = {
-        ParticipantLoadStatus.INVALID_JSON,
-        ParticipantLoadStatus.ROOT_NOT_LIST,
-    }
-
     def __init__(
         self,
         gateway: GoogleSheetsGateway,
@@ -262,29 +256,7 @@ class SynchronizationService:
         self._gateway = gateway
         self._participant_repository = participant_repository
 
-    def local_cache_requires_replacement_confirmation(self) -> bool:
-        return (
-            self._participant_repository.load().status
-            in self._DAMAGED_CACHE_STATUSES
-        )
-
-    def synchronize(
-        self,
-        *,
-        allow_damaged_cache_replacement: bool = False,
-    ) -> ParticipantSynchronizationResult:
-        if (
-            self.local_cache_requires_replacement_confirmation()
-            and not allow_damaged_cache_replacement
-        ):
-            return ParticipantSynchronizationResult(
-                succeeded=False,
-                message=(
-                    "O arquivo local de inscrições está danificado e "
-                    "precisa de confirmação antes de ser substituído."
-                ),
-                technical_code="damaged_cache_confirmation_required",
-            )
+    def synchronize(self) -> ParticipantSynchronizationResult:
         try:
             downloaded = self._gateway.download_participants()
         except SheetsGatewayError as error:

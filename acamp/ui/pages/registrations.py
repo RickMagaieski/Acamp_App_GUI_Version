@@ -15,12 +15,11 @@ from PySide6.QtWidgets import (
 )
 
 from acamp.repositories import ParticipantLoadResult, ParticipantLoadStatus
-from acamp.ui.dialogs import confirm_destructive
 from acamp.ui.models import (
     ParticipantTableModel,
     filter_participants,
+    newest_participants_first,
     paginate_participants,
-    sort_participants,
 )
 
 from ..widgets import CampLandscape, Card, PageScaffold, PrimaryButton
@@ -40,8 +39,6 @@ class RegistrationsPage(PageScaffold):
         self._load_result = load_result
         self._participants = load_result.participants
         self._page_index = 0
-        self._sort_column = 0
-        self._sort_order = Qt.SortOrder.AscendingOrder
         self._active_participant_operation: str | None = None
         self._cache_reconciliation_required = False
 
@@ -139,15 +136,6 @@ class RegistrationsPage(PageScaffold):
         self.content.addLayout(footer)
         self.content.addWidget(CampLandscape())
 
-        self.table_view.horizontalHeader().sortIndicatorChanged.connect(
-            self._on_sort_changed
-        )
-        self.table_view.setSortingEnabled(True)
-        self.table_view.sortByColumn(
-            self._sort_column,
-            self._sort_order,
-        )
-
         can_search = load_result.succeeded and bool(self._participants)
         self.search_field.setEnabled(can_search)
         self.search_button.setEnabled(can_search)
@@ -163,16 +151,6 @@ class RegistrationsPage(PageScaffold):
 
     def _next_page(self) -> None:
         self._page_index += 1
-        self._refresh_view()
-
-    def _on_sort_changed(
-        self,
-        column: int,
-        order: Qt.SortOrder,
-    ) -> None:
-        self._sort_column = column
-        self._sort_order = order
-        self._page_index = 0
         self._refresh_view()
 
     def _on_table_clicked(self, index) -> None:
@@ -192,21 +170,7 @@ class RegistrationsPage(PageScaffold):
                 "pode ser removida do Google Sheets."
             )
             return
-        if self._confirm_deletion(participant.name):
-            self.deletion_requested.emit(participant)
-
-    def _confirm_deletion(self, participant_name: str) -> bool:
-        return confirm_destructive(
-            self,
-            title="Remover inscrição",
-            message=(
-                "Tem certeza de que deseja remover a inscrição de "
-                f"{participant_name}?\n\n"
-                "A inscrição será removida do Google Sheets e dos dados "
-                "locais."
-            ),
-            confirm_text="Remover",
-        )
+        self.deletion_requested.emit(participant)
 
     def _load_state_message(self) -> str | None:
         messages = {
@@ -301,11 +265,7 @@ class RegistrationsPage(PageScaffold):
             self._participants,
             self.search_field.text(),
         )
-        filtered = sort_participants(
-            filtered,
-            self._sort_column,
-            self._sort_order,
-        )
+        filtered = newest_participants_first(filtered)
         page = paginate_participants(filtered, self._page_index, self.PAGE_SIZE)
         self._page_index = page.page_index
 

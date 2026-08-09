@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 from types import MappingProxyType
 from typing import Mapping, Sequence
@@ -13,7 +13,7 @@ from typing import Mapping, Sequence
 from .models import InventoryItem, Participant
 
 
-INITIAL_BALANCE = Decimal("3700.00")
+INITIAL_BALANCE = Decimal("800.00")
 
 REGISTRATION_PRICES: Mapping[str, Decimal] = MappingProxyType({
     "adulto": Decimal("135.00"),
@@ -64,11 +64,28 @@ def normalize_accommodation(value: str) -> str:
     )
 
 
+def is_payment_exempt_age(age: object) -> bool:
+    """Return whether a valid whole-number age is exempt from payment."""
+
+    if isinstance(age, bool) or age is None:
+        return False
+    try:
+        numeric_age = Decimal(str(age).strip())
+    except (InvalidOperation, TypeError, ValueError):
+        return False
+    return (
+        numeric_age.is_finite()
+        and numeric_age >= 0
+        and numeric_age == numeric_age.to_integral_value()
+        and numeric_age <= 7
+    )
+
+
 class PaymentStatus(str, Enum):
     PAID = "Pago"
     PARTIAL = "Parcial"
     PENDING = "Pendente"
-    SPECIAL = "Especial/Isento"
+    SPECIAL = "Isento"
     UNCLASSIFIED = "Não classificado"
 
 
@@ -84,7 +101,16 @@ def classify_payment(
     registration_type: str,
     accommodation: str,
     payment: Decimal | None,
+    age: object = None,
 ) -> PaymentAssessment:
+    if is_payment_exempt_age(age):
+        return PaymentAssessment(
+            PaymentStatus.SPECIAL,
+            expected=Decimal("0.00"),
+            paid=Decimal("0.00"),
+            remaining=Decimal("0.00"),
+        )
+
     if payment is None or not payment.is_finite() or payment < 0:
         return PaymentAssessment(
             PaymentStatus.UNCLASSIFIED,
@@ -168,14 +194,6 @@ def calculate_financial_snapshot(
     participants_available: bool = True,
     inventory_available: bool = True,
 ) -> FinancialSnapshot:
-    entries = sum(
-        (
-            participant.payment_amount
-            for participant in participants
-            if participant.payment_amount is not None
-        ),
-        Decimal("0.00"),
-    )
     expenses = sum(
         (
             item.total_value
@@ -187,13 +205,17 @@ def calculate_financial_snapshot(
 
     counts = {status: 0 for status in PaymentStatus}
     payment_details: list[ParticipantPayment] = []
+    entries = Decimal("0.00")
     remaining_owed = Decimal("0.00")
     for participant in participants:
         assessment = classify_payment(
             participant.inscription,
             participant.accommodation,
             participant.payment_amount,
+            participant.age,
         )
+        if assessment.paid is not None:
+            entries += assessment.paid
         counts[assessment.status] += 1
         if assessment.status in {
             PaymentStatus.PARTIAL,

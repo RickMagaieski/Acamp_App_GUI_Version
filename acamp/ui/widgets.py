@@ -442,7 +442,8 @@ class ReportChartCard(Card):
 
         series = QPieSeries()
         series.setHoleSize(0.46)
-        series.setPieSize(0.7)
+        series.setPieSize(0.66)
+        total = sum(value for _label, value in positive_values)
         for index, (label, value) in enumerate(positive_values):
             pie_slice = series.append(label, value)
             pie_slice.setColor(
@@ -450,7 +451,10 @@ class ReportChartCard(Card):
             )
             pie_slice.setBorderColor(QColor(CARD))
             pie_slice.setBorderWidth(2)
-            pie_slice.setLabel(f"{label}: {value}")
+            percentage = round((value / total) * 100)
+            pie_slice.setLabel(
+                f"{label} — {value} ({percentage}%)"
+            )
             pie_slice.setLabelVisible(False)
 
         chart = self._new_chart()
@@ -458,6 +462,9 @@ class ReportChartCard(Card):
         chart.legend().setVisible(True)
         chart.legend().setAlignment(Qt.AlignmentFlag.AlignRight)
         chart.legend().setLabelColor(QColor(TEXT))
+        legend_font = QFont()
+        legend_font.setPointSize(10)
+        chart.legend().setFont(legend_font)
         self._show_chart(chart)
 
     def set_bar_data(

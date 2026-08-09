@@ -23,9 +23,9 @@ AGE_GROUP_LABELS = (
 )
 
 FOOD_LABELS = (
-    "Come carne",
-    "Não come carne",
-    "Sem informação/Outro",
+    "Não vegetarianos / Come carne",
+    "Vegetarianos / Não come carne",
+    "Sem informação / Outro",
 )
 
 ACCOMMODATION_LABELS = (
@@ -33,13 +33,13 @@ ACCOMMODATION_LABELS = (
     "RV",
     "Cabine",
     "Especial",
-    "Sem informação/Outro",
+    "Sem informação / Outro",
 )
 
 TRANSPORTATION_LABELS = (
     "Precisa de ajuda",
     "Não precisa de ajuda",
-    "Sem informação/Outro",
+    "Sem informação / Outro",
 )
 
 PAYMENT_STATUS_ORDER = (
@@ -54,7 +54,7 @@ PAYMENT_STATUS_LABELS = {
     PaymentStatus.PAID: "Pagos",
     PaymentStatus.PARTIAL: "Parciais",
     PaymentStatus.PENDING: "Pendentes",
-    PaymentStatus.SPECIAL: "Especiais/Isentos",
+    PaymentStatus.SPECIAL: "Isentos",
     PaymentStatus.UNCLASSIFIED: "Não classificados",
 }
 
@@ -118,7 +118,7 @@ class ReportSnapshot:
     def has_unclassified_records(self) -> bool:
         unknown_labels = {
             "Sem informação",
-            "Sem informação/Outro",
+            "Sem informação / Outro",
             PAYMENT_STATUS_LABELS[PaymentStatus.UNCLASSIFIED],
         }
         categorical_sections = (

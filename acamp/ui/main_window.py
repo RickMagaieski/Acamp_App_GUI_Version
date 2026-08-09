@@ -282,43 +282,9 @@ class MainWindow(QMainWindow):
             )
             return
 
-        try:
-            damaged_cache = (
-                self._synchronization_service
-                .local_cache_requires_replacement_confirmation()
-            )
-        except Exception:
-            self.dashboard_page.show_sync_error(
-                "Não foi possível verificar o arquivo local de inscrições."
-            )
-            return
-
-        if damaged_cache:
-            confirmation_message = (
-                "O arquivo local de inscrições está danificado. "
-                "A sincronização substituirá esse arquivo pelos dados "
-                "baixados do Google Sheets. Deseja continuar?"
-            )
-        else:
-            confirmation_message = (
-                "A sincronização substituirá a lista local de inscrições "
-                "pelos dados atuais do Google Sheets. Deseja continuar?"
-            )
-        answer = QMessageBox.question(
-            self,
-            "Sincronizar Google Sheets",
-            confirmation_message,
-            QMessageBox.StandardButton.Yes
-            | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if answer != QMessageBox.StandardButton.Yes:
-            return
-
         thread = QThread(self)
         worker = ParticipantSynchronizationWorker(
-            self._synchronization_service,
-            allow_damaged_cache_replacement=damaged_cache,
+            self._synchronization_service
         )
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
@@ -488,22 +454,6 @@ class MainWindow(QMainWindow):
             )
             event.ignore()
             return
-        if self._participant_cache_requires_reconciliation:
-            answer = QMessageBox.question(
-                self,
-                "Sincronização necessária",
-                (
-                    "A inscrição foi removida online, mas o arquivo local "
-                    "ainda precisa ser reconciliado. Sincronize os dados "
-                    "antes de fechar.\n\nDeseja fechar mesmo assim?"
-                ),
-                QMessageBox.StandardButton.Yes
-                | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if answer != QMessageBox.StandardButton.Yes:
-                event.ignore()
-                return
         super().closeEvent(event)
 
     @property

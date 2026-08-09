@@ -330,7 +330,6 @@ class ReportsApplicationStateTests(unittest.TestCase):
                     window.reports_page.accommodation_chart,
                     window.reports_page.transportation_chart,
                     window.reports_page.payment_chart,
-                    window.reports_page.team_chart,
                 ):
                     self.assertFalse(chart_card.chart_view.isHidden())
                     self.assertEqual(
@@ -388,11 +387,7 @@ class ReportsApplicationStateTests(unittest.TestCase):
                 )
 
                 created_team = teams.teams[-1]
-                with patch(
-                    "acamp.ui.pages.activities.confirm_destructive",
-                    return_value=True,
-                ):
-                    window.activities_page._confirm_delete_team(created_team)
+                window.activities_page._delete_team(created_team)
                 self.assertEqual(
                     len(window.reports_page.last_snapshot.team_ranking),
                     2,
@@ -403,6 +398,11 @@ class ReportsApplicationStateTests(unittest.TestCase):
                     for label in window.reports_page.findChildren(QLabel)
                 )
                 self.assertNotIn(participant_name, visible_report_text)
+                self.assertNotIn("PONTUAÇÃO DAS EQUIPES", visible_report_text)
+                self.assertNotIn(
+                    "Alguns registros não puderam ser contabilizados.",
+                    visible_report_text,
+                )
             finally:
                 window.close()
 

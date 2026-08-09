@@ -265,25 +265,12 @@ class ActivitiesWorkflowTests(unittest.TestCase):
                 25,
             )
 
-    def test_cancel_then_remove_exactly_one_selected_duplicate(self):
+    def test_direct_action_removes_exactly_one_selected_duplicate(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "teams.json"
             page = self._page(path)
             page._member_table_clicked(page.member_model.index(0, 1))
-            original = path.read_text(encoding="utf-8")
-            with patch(
-                "acamp.ui.pages.activities.confirm_destructive",
-                return_value=False,
-            ):
-                page._remove_selected_member()
-            self.assertEqual(path.read_text(encoding="utf-8"), original)
-            self.assertEqual(page.member_model.rowCount(), 2)
-
-            with patch(
-                "acamp.ui.pages.activities.confirm_destructive",
-                return_value=True,
-            ):
-                page._remove_selected_member()
+            page._remove_selected_member()
             self.assertEqual(page.member_model.rowCount(), 1)
             persisted = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(len(persisted[0]["pessoas"]), 1)

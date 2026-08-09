@@ -237,7 +237,6 @@ class DashboardPage(PageScaffold):
         welcome_layout.addWidget(hero_landscape, 3)
         welcome.body.addLayout(welcome_layout)
         self.content.addWidget(welcome)
-        self.content.addWidget(CampLandscape())
         self.refresh_from_service()
 
     def refresh_from_service(self) -> None:

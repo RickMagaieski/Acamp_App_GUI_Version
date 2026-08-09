@@ -96,6 +96,29 @@ class PricingPolicyTests(unittest.TestCase):
             PaymentStatus.UNCLASSIFIED,
         )
 
+    def test_age_seven_and_younger_are_isento_but_age_eight_is_not(self):
+        for age in (0, 6, 7):
+            assessment = classify_payment(
+                "criança", "cabine", None, age
+            )
+            self.assertEqual(assessment.status, PaymentStatus.SPECIAL)
+            self.assertEqual(assessment.expected, Decimal("0.00"))
+            self.assertEqual(assessment.paid, Decimal("0.00"))
+            self.assertEqual(assessment.remaining, Decimal("0.00"))
+
+        age_eight = classify_payment(
+            "criança", "cabine", Decimal("0"), 8
+        )
+        self.assertEqual(age_eight.status, PaymentStatus.PENDING)
+        self.assertEqual(age_eight.expected, Decimal("67.75"))
+
+    def test_missing_or_invalid_age_is_not_automatically_isento(self):
+        for age in (None, "", "inválida", -1, "7.5"):
+            assessment = classify_payment(
+                "criança", "cabine", Decimal("0"), age
+            )
+            self.assertEqual(assessment.status, PaymentStatus.PENDING)
+
 
 class FinancialSnapshotTests(unittest.TestCase):
     @staticmethod
@@ -162,7 +185,7 @@ class FinancialSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot.entries, Decimal("315"))
         self.assertEqual(snapshot.expenses, Decimal("20.50"))
         self.assertEqual(snapshot.event_result, Decimal("294.50"))
-        self.assertEqual(snapshot.available_balance, Decimal("3994.50"))
+        self.assertEqual(snapshot.available_balance, Decimal("1094.50"))
         self.assertEqual(snapshot.remaining_owed, Decimal("102.75"))
         self.assertEqual(snapshot.status_counts[PaymentStatus.PAID], 2)
         self.assertEqual(snapshot.status_counts[PaymentStatus.PARTIAL], 1)
@@ -188,6 +211,25 @@ class FinancialSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot.expenses, Decimal("0.00"))
         self.assertEqual(snapshot.event_result, Decimal("0.00"))
         self.assertEqual(snapshot.available_balance, INITIAL_BALANCE)
+
+    def test_isento_is_excluded_from_income_pending_and_amount_owed(self):
+        participants = tuple(
+            self._participant(
+                name=f"Criança {age}",
+                age=age,
+                inscription="criança",
+                accommodation="cabine",
+                payment=99 if age == 7 else 0,
+            )
+            for age in (6, 7, 8)
+        )
+        snapshot = calculate_financial_snapshot(participants, ())
+
+        self.assertEqual(snapshot.entries, Decimal("0.00"))
+        self.assertEqual(snapshot.status_counts[PaymentStatus.SPECIAL], 2)
+        self.assertEqual(snapshot.status_counts[PaymentStatus.PENDING], 1)
+        self.assertEqual(snapshot.remaining_owed, Decimal("67.75"))
+        self.assertEqual(snapshot.payments[0].status.value, "Isento")
 
 
 class FinanceApplicationStateTests(unittest.TestCase):
@@ -230,11 +272,7 @@ class FinanceApplicationStateTests(unittest.TestCase):
                 0,
                 window.inventory_page.table_model.ACTION_COLUMN,
             )
-            with patch(
-                "acamp.ui.pages.inventory.confirm_destructive",
-                return_value=True,
-            ):
-                window.inventory_page._table_clicked(action)
+            window.inventory_page._table_clicked(action)
 
             self.assertEqual(
                 window.finance_page.summary_labels["expenses"].text(),

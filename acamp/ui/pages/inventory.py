@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 from acamp.models import InventoryDraft
 from acamp.repositories import InventoryLoadStatus
 from acamp.services import InventoryOperationResult, InventoryService
-from acamp.ui.dialogs import AddInventoryItemDialog, confirm_destructive
+from acamp.ui.dialogs import AddInventoryItemDialog
 from acamp.ui.models import InventoryTableModel, filter_inventory_items
 
 from ..widgets import CampLandscape, Card, PageScaffold, PrimaryButton
@@ -173,15 +173,6 @@ class InventoryPage(PageScaffold):
             return
         item = self.table_model.item_at(index.row())
         if item is None:
-            return
-
-        confirmed = confirm_destructive(
-            self,
-            title="Excluir item",
-            message=f'Deseja realmente excluir "{item.item}"?',
-            confirm_text="Excluir",
-        )
-        if not confirmed:
             return
 
         result = self._service.delete_item(item.source_index)

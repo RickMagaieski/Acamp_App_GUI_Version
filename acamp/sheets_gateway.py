@@ -60,19 +60,19 @@ def _cell(row: Sequence[Any], index: int) -> str:
     return str(value).strip()
 
 
-def _safe_age(value: str) -> tuple[int, bool]:
+def _safe_age(value: str) -> tuple[int | str, bool]:
     if not value:
-        return 0, True
+        return "", True
     try:
         age = Decimal(value)
     except (InvalidOperation, ValueError):
-        return 0, True
+        return value, True
     if (
         not age.is_finite()
         or age < 0
         or age != age.to_integral_value()
     ):
-        return 0, True
+        return value, True
     return int(age), False
 
 

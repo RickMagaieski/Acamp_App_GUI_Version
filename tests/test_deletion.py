@@ -10,8 +10,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication
 
 from acamp.config import GoogleSheetsConfig
 from acamp.repositories import (
@@ -337,29 +336,24 @@ class RegistrationsPageDeletionTests(unittest.TestCase):
         requested = []
         page.deletion_requested.connect(requested.append)
         page.search_field.setText("alvo")
-        page.table_view.sortByColumn(
-            0,
-            Qt.SortOrder.DescendingOrder,
-        )
         QApplication.processEvents()
 
         self.assertNotIn("ID", page.table_model.HEADERS)
         self.assertEqual(page.table_model.columnCount(), 8)
         selected = page.table_model.participant_at(0)
-        self.assertEqual(selected.participant_id, "ID-Z")
-        with patch.object(page, "_confirm_deletion", return_value=True):
-            page._on_table_clicked(
-                page.table_model.index(
-                    0,
-                    ParticipantTableModel.ACTION_COLUMN,
-                )
+        self.assertEqual(selected.participant_id, "ID-A")
+        page._on_table_clicked(
+            page.table_model.index(
+                0,
+                ParticipantTableModel.ACTION_COLUMN,
             )
+        )
 
         self.assertEqual(len(requested), 1)
-        self.assertEqual(requested[0].source_index, 0)
+        self.assertEqual(requested[0].source_index, 2)
         page.close()
 
-    def test_cancelled_confirmation_emits_nothing(self):
+    def test_direct_action_emits_without_confirmation(self):
         state = participant_result_from_records([
             _record("pessoa fictícia", "ID-CANCELAR"),
         ])
@@ -367,15 +361,14 @@ class RegistrationsPageDeletionTests(unittest.TestCase):
         requested = []
         page.deletion_requested.connect(requested.append)
 
-        with patch.object(page, "_confirm_deletion", return_value=False):
-            page._on_table_clicked(
-                page.table_model.index(
-                    0,
-                    ParticipantTableModel.ACTION_COLUMN,
-                )
+        page._on_table_clicked(
+            page.table_model.index(
+                0,
+                ParticipantTableModel.ACTION_COLUMN,
             )
+        )
 
-        self.assertEqual(requested, [])
+        self.assertEqual(len(requested), 1)
         page.close()
 
     def test_pagination_clamps_and_search_text_survives_state_replacement(self):
@@ -389,7 +382,7 @@ class RegistrationsPageDeletionTests(unittest.TestCase):
         self.assertEqual(page._page_index, 1)
         self.assertEqual(
             page.table_model.participant_at(0).source_index,
-            10,
+            0,
         )
 
         page.set_load_result(participant_result_from_records(records[:10]))
@@ -429,9 +422,6 @@ class _BlockingSynchronizationService:
         self.calls = 0
         self.started = threading.Event()
         self.release = threading.Event()
-
-    def local_cache_requires_replacement_confirmation(self):
-        return False
 
     def synchronize(self, **_options):
         self.calls += 1
@@ -551,10 +541,6 @@ class DeletionApplicationTests(unittest.TestCase):
             patch(
                 "acamp.ui.pages.registrations.QMessageBox.warning"
             ) as warning,
-            patch(
-                "acamp.ui.main_window.QMessageBox.question",
-                return_value=QMessageBox.StandardButton.Yes,
-            ),
         ):
             window._start_participant_deletion(current.participants[0])
             self._wait_until(lambda: window._deletion_thread is None)
@@ -637,15 +623,9 @@ class DeletionApplicationTests(unittest.TestCase):
         window = self._window(current, deletion, synchronization)
 
         try:
-            with (
-                patch(
-                    "acamp.ui.main_window.QMessageBox.question",
-                    return_value=QMessageBox.StandardButton.Yes,
-                ),
-                patch(
+            with patch(
                     "acamp.ui.pages.dashboard.QMessageBox.information"
-                ),
-            ):
+                ):
                 window._start_participant_sync()
                 self.assertTrue(synchronization.started.wait(timeout=1))
                 QApplication.processEvents()

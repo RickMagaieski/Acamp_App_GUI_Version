@@ -17,7 +17,7 @@ from acamp.models import (
     TeamMember,
     format_currency,
 )
-from acamp.pricing import ParticipantPayment
+from acamp.pricing import ParticipantPayment, PaymentStatus, classify_payment
 from acamp.reporting import TeamRankingEntry
 
 
@@ -68,6 +68,18 @@ def sort_participants(
         participants,
         key=accessors[column],
         reverse=order == Qt.SortOrder.DescendingOrder,
+    ))
+
+
+def newest_participants_first(
+    participants: Sequence[Participant],
+) -> tuple[Participant, ...]:
+    """Present newest source rows first without mutating stored order."""
+
+    return tuple(sorted(
+        participants,
+        key=lambda participant: participant.source_index,
+        reverse=True,
     ))
 
 
@@ -130,12 +142,23 @@ class ParticipantTableModel(QAbstractTableModel):
             return None
 
         participant = self._participants[index.row()]
+        payment = classify_payment(
+            participant.inscription,
+            participant.accommodation,
+            participant.payment_amount,
+            participant.age,
+        )
+        payment_display = (
+            "Isento"
+            if payment.status == PaymentStatus.SPECIAL
+            else participant.payment
+        )
         values = (
             participant.name,
             participant.age,
             participant.phone,
             participant.inscription,
-            participant.payment,
+            payment_display,
             participant.accommodation,
             participant.transportation,
             "Excluir" if participant.has_usable_id else "Indisponível",
@@ -353,12 +376,11 @@ class TeamTableModel(QAbstractTableModel):
     HEADERS = (
         "Time",
         "Capitão",
-        "Cor",
         "Participantes",
         "Pontos",
         "Ação",
     )
-    ACTION_COLUMN = 5
+    ACTION_COLUMN = 4
 
     def __init__(self, teams: Sequence[Team] = (), parent=None):
         super().__init__(parent)
@@ -377,7 +399,6 @@ class TeamTableModel(QAbstractTableModel):
         values = (
             team.name,
             team.leader,
-            team.color,
             team.participant_count_display,
             team.score_display,
             "Excluir",
@@ -385,7 +406,7 @@ class TeamTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.DisplayRole:
             return values[index.column()]
         if role == Qt.ItemDataRole.TextAlignmentRole:
-            if index.column() in (0, 1, 2):
+            if index.column() in (0, 1):
                 return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
             return Qt.AlignmentFlag.AlignCenter
         if (

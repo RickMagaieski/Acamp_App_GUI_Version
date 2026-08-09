@@ -23,25 +23,16 @@ class ParticipantSynchronizationWorker(QObject):
     def __init__(
         self,
         service: SynchronizationService,
-        *,
-        allow_damaged_cache_replacement: bool = False,
         parent: QObject | None = None,
     ):
         super().__init__(parent)
         self._service = service
-        self._allow_damaged_cache_replacement = (
-            allow_damaged_cache_replacement
-        )
 
     @Slot()
     def run(self) -> None:
         self.progress.emit("Sincronizando...")
         try:
-            result = self._service.synchronize(
-                allow_damaged_cache_replacement=(
-                    self._allow_damaged_cache_replacement
-                )
-            )
+            result = self._service.synchronize()
             if result.succeeded:
                 self.succeeded.emit(result)
             else:
