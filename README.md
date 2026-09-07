@@ -1,5 +1,7 @@
 # ACAMP WBSDAC Desktop
 
+(*The GUI version was mainly developed using Codex AI (OpenAI). The code here was mainly AI generated for learning purposes. If you want to see the version where mostly of the code was made by me directly you should look for Acamp_App_Terminal_Version.*)
+
 A PySide6 desktop application for managing camp registrations, inventory,
 finances, teams, activities, reports, and indicators. The interface shares a
 single state across all pages and keeps financial and reporting rules
@@ -109,5 +111,3 @@ from the project and are not included in the distribution. The
 `README_RELEASE.txt` file contains instructions for users of the portable
 version.
 >>>>>>> cd56f5de3fd50f82a81e0a57a1bb5e0013a4a6f4
->>>>>>>
->>>>>>> The GUI version was mainly developed using Codex AI (OpenAI). The code here was mainly AI generated for learning purposes. If you want to see the version where mostly of the code was made by me directly you should look for Acamp_App_Terminal_Version.  
