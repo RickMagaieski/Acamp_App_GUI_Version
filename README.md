@@ -102,13 +102,6 @@ The executable is created at
 `dist\Acamp_App_GUI\Acamp_App_GUI.exe`, and the portable archive is created at
 `release\Acamp_App_GUI_Windows.zip`.
 
-<<<<<<< HEAD
-Na execução empacotada, dados e credenciais privados permanecem externos.
-O assistente pode usar diretamente uma pasta escolhida ou copiar somente
-os arquivos selecionados pelo usuário para `user_data`. Nenhum arquivo
-privado é copiado automaticamente do projeto ou incluído na distribuição.
-O arquivo `README_RELEASE.txt` contém as instruções destinadas ao usuário
-da versão portátil.
 =======
 In the packaged application, private data and credentials are resolved only
 from the `user_data` folder located next to the executable. They are not copied
@@ -116,3 +109,5 @@ from the project and are not included in the distribution. The
 `README_RELEASE.txt` file contains instructions for users of the portable
 version.
 >>>>>>> cd56f5de3fd50f82a81e0a57a1bb5e0013a4a6f4
+>>>>>>>
+>>>>>>> The GUI version was mainly developed using Codex AI (OpenAI). The code here was mainly AI generated for learning purposes. If you want to see the version where mostly of the code was made by me directly you should look for Acamp_App_Terminal_Version.  
